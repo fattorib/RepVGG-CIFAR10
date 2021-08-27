@@ -153,7 +153,7 @@ if __name__ == '__main__':
     reparam_bias = torch.zeros(64)
 
 
-    #Do this for all three filter maps
+    #3x3
     std = (model.bn_3.running_var + model.bn_3.eps).sqrt()
     t = (model.bn_3.weight / std).reshape(-1, 1, 1, 1)
 
@@ -161,20 +161,45 @@ if __name__ == '__main__':
     reparam_bias_3 = -(model.bn_3.running_mean*model.bn_3.weight/model.bn_3.running_var) + model.bn_3.bias
 
 
+    #1x1
+    std = (model.bn_1.running_var + model.bn_1.eps).sqrt()
+    t = (model.bn_1.weight / std).reshape(-1, 1, 1, 1)
+
+    reparam_weight_1 = model.conv_1.weight*t
+    reparam_bias_1 = -(model.bn_1.running_mean*model.bn_1.weight/model.bn_1.running_var) + model.bn_1.bias
+
+    #idx
+    std = (model.bn_0.running_var + model.bn_0.eps).sqrt()
+    t = (model.bn_0.weight / std).reshape(-1, 1, 1, 1)
+
+    reparam_weight_0 = torch.ones([64,64,1,1])*t
+    reparam_bias_0 = -(model.bn_0.running_mean*model.bn_0.weight/model.bn_0.running_var) + model.bn_0.bias
 
 
+    reparam_weight = reparam_weight_3
+    reparam_bias = reparam_bias_3
 
-    # reparam_bias = None
+    reparam_weight +=  F.pad(reparam_weight_1,(1,1,1,1),mode = 'constant',value=0)
+    reparam_bias += reparam_bias_1
 
-    reparam_weight += model.conv_3.weight
-    reparam_weight += F.pad(model.conv_1.weight,(1,1,1,1),mode = 'constant',value=0)
+    reparam_weight +=  F.pad(reparam_weight_0,(1,1,1,1),mode = 'constant',value=0)
+    reparam_bias += reparam_bias_0
+
+
+    print(reparam_weight.shape)
+    print(reparam_bias.shape)
+
+    # # reparam_bias = None
+
+    # reparam_weight += model.conv_3.weight
+    # reparam_weight += F.pad(model.conv_1.weight,(1,1,1,1),mode = 'constant',value=0)
 
     
-    print(model.conv_3.weight.shape)
+    # print(model.conv_3.weight.shape)
     
 
-    #Pad these 
-    # print(F.pad(model.conv_1.weight,(1,1,1,1),mode = 'constant',value=0).shape)
+    # #Pad these 
+    # # print(F.pad(model.conv_1.weight,(1,1,1,1),mode = 'constant',value=0).shape)
 
 
 
