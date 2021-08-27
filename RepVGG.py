@@ -109,18 +109,35 @@ class RepVGGStage(nn.Module):
     def forward(self,x):
         return self.sequential(x)
 
+class RepVGG(nn.Module):
+
+    def __init__(self,filter_depth = [1,2,4,14,1],filter_list=[64, 64,128,256,512], a=1, b=1):
+        super(RepVGG, self).__init__()
+
+        self.stages = nn.Sequential(
+            *[RepVGGStage(in_channels=3, out_channels=filter_list[0], N = filter_depth[0], a = a, b = b)]+
+            [RepVGGStage(in_channels=filter_list[i-1], out_channels=filter_list[i], N = filter_depth[i], a = a, b = b) for i in range(1,5)
+        ])
+
+    
+        self.fc = nn.Linear(in_features=filter_list[-1], out_features=10)
+    
+
+    def forward(self,x):
+
+        x = self.stages(x)
+
+        x = torch.mean(x,axis = (2,3))
+
+        return self.fc(x)
 
 if __name__ == '__main__':
 
-    model = nn.Sequential(RepVGGStage(in_channels=3, out_channels=64, N = 1, a = 1, b= 1),
-                            RepVGGStage(in_channels=64, out_channels=64, N = 2, a = 1, b= 1),
-                            RepVGGStage(in_channels=64, out_channels=128, N = 4, a = 1, b= 1),
-                            RepVGGStage(in_channels=128, out_channels=256, N = 4, a = 1, b= 1),
-                            )
+    model = RepVGG()
 
-    img = torch.ones(1,3,32,32)
+    img = torch.ones(1,3,112,112)
 
-    print(model(img).shape)
+
 
 
     
