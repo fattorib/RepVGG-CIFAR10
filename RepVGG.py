@@ -131,11 +131,50 @@ class RepVGG(nn.Module):
 
         return self.fc(x)
 
+
+
+
 if __name__ == '__main__':
 
     model = RepVGG()
 
-    img = torch.ones(1,3,112,112)
+    # img = torch.ones(1,3,112,112)
+    model = RepVGGBlock(in_channels=64,out_channels=64)
+
+    
+
+    #Recipe is:
+
+    # 1. Create 3 3x3 kernels and bias vectors
+    
+    reparam_weight = torch.zeros_like(model.conv_3.weight)
+
+    #Size of out filter
+    reparam_bias = torch.zeros(64)
+
+
+    #Do this for all three filter maps
+    std = (model.bn_3.running_var + model.bn_3.eps).sqrt()
+    t = (model.bn_3.weight / std).reshape(-1, 1, 1, 1)
+
+    reparam_weight_3 = model.conv_3.weight*t
+    reparam_bias_3 = -(model.bn_3.running_mean*model.bn_3.weight/model.bn_3.running_var) + model.bn_3.bias
+
+
+
+
+
+    # reparam_bias = None
+
+    reparam_weight += model.conv_3.weight
+    reparam_weight += F.pad(model.conv_1.weight,(1,1,1,1),mode = 'constant',value=0)
+
+    
+    print(model.conv_3.weight.shape)
+    
+
+    #Pad these 
+    # print(F.pad(model.conv_1.weight,(1,1,1,1),mode = 'constant',value=0).shape)
 
 
 
