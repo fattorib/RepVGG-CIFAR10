@@ -464,6 +464,9 @@ def validate(loader, model, criterion, scaler=None):
     # switch to evaluate mode
     model.eval()
 
+    #Update the reparam
+    model._reparam()
+
     end = time.time()
 
     for i, (images, target) in enumerate(loader):

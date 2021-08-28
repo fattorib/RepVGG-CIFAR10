@@ -228,9 +228,12 @@ if __name__ == "__main__":
         filter_list=[16, 32, 64],
         a = 0.75,
         b = 2.5
-    )
+    ).cuda()
 
-    input = torch.ones([1, 3, 32, 32])
+    input = torch.ones([1, 3, 32, 32]).cuda()
+
+
+   
 
     print(model(input).shape)
 

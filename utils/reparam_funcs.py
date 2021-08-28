@@ -31,7 +31,7 @@ def reparam_func(layer):
     # 1x1 weight fuse
     std = (layer.bn_1.running_var + layer.bn_1.eps).sqrt()
     t = (layer.bn_1.weight / std).reshape(-1, 1, 1, 1)
-
+    
     reparam_weight_1 = layer.conv_1.weight * t
     reparam_bias_1 = (
         -(layer.bn_1.running_mean * layer.bn_1.weight / layer.bn_1.running_var)
@@ -53,7 +53,7 @@ def reparam_func(layer):
 
         channel_shape = layer.conv_3.weight.shape
 
-        reparam_weight_0 = torch.ones([channel_shape[0], channel_shape[1], 1, 1]) * t
+        reparam_weight_0 = torch.ones([channel_shape[0], channel_shape[1], 1, 1], device = layer.conv_3.weight.device) * t
         reparam_bias_0 = (
             -(layer.bn_0.running_mean * layer.bn_0.weight / layer.bn_0.running_var)
             + layer.bn_0.bias
