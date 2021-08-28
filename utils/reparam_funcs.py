@@ -9,7 +9,7 @@ import torch.nn.init as init
 from torch import Tensor
 
 
-def reparam_func(layer, num_channels):
+def reparam_func(layer):
     """[summary]
 
     Args:
@@ -17,10 +17,6 @@ def reparam_func(layer, num_channels):
 
         Returns the reparamitrized weights
     """
-
-    reparam_weight = torch.zeros_like(layer.conv_3.weight)
-
-    reparam_bias = torch.zeros(num_channels)
 
     # 3x3 weight fuse
     std = (layer.bn_3.running_var + layer.bn_3.eps).sqrt()
@@ -42,8 +38,8 @@ def reparam_func(layer, num_channels):
         + layer.bn_1.bias
     )
 
-    reparam_weight += reparam_weight_3
-    reparam_bias += reparam_bias_3
+    reparam_weight = reparam_weight_3
+    reparam_bias = reparam_bias_3
 
     reparam_weight += F.pad(reparam_weight_1, (1, 1, 1, 1), mode="constant", value=0)
     reparam_bias += reparam_bias_1
@@ -68,4 +64,4 @@ def reparam_func(layer, num_channels):
         )
         reparam_bias += reparam_bias_0
 
-    return reparam_weight, reparam_bias
+    return nn.Parameter(reparam_weight), nn.Parameter(reparam_bias)

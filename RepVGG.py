@@ -7,6 +7,7 @@ import torch.nn.functional as F
 import copy
 import torch.nn.init as init
 from torch import Tensor
+from utils import reparam_funcs
 from utils.reparam_funcs import reparam_func
 
 # TBD
@@ -49,23 +50,33 @@ class RepVGGBlock(nn.Module):
 
         self.apply(_weights_init)
 
+        # Reparam conv block
+        self.rep_conv = nn.Conv2d(
+            in_channels=in_channels,
+            out_channels=out_channels,
+            kernel_size=(3, 3),
+            padding=1,
+            stride=1,
+            bias=True,
+        )
+
+        for param in self.rep_conv.parameters():
+            param.requires_grad = False
+
     def forward(self, x):
-        x_3 = self.bn_3(self.conv_3(x))
-        x_1 = self.bn_1(self.conv_1(x))
+        if self.training:
+            x_3 = self.bn_3(self.conv_3(x))
+            x_1 = self.bn_1(self.conv_1(x))
 
-        if self.identity:
-            x_0 = self.bn_0(x)
+            if self.identity:
+                x_0 = self.bn_0(x)
 
-            return F.relu(x_3 + x_1 + x_0)
+                return F.relu(x_3 + x_1 + x_0)
 
+            else:
+                return F.relu(x_3 + x_1)
         else:
-            return F.relu(x_3 + x_1)
-
-    def reparam(self):
-        pass
-
-    def forward_inference(self, x):
-        pass
+            return F.relu(self.rep_conv(x))
 
 
 class DownsampleRepVGGBlock(nn.Module):
@@ -98,19 +109,26 @@ class DownsampleRepVGGBlock(nn.Module):
 
         self.apply(_weights_init)
 
+        # Reparam conv block
+        self.rep_conv = nn.Conv2d(
+            in_channels=num_channels,
+            out_channels=num_channels,
+            kernel_size=(3, 3),
+            padding=1,
+            stride=(2, 2),
+            bias=True,
+        )
+
     def forward(self, x):
-        x_3 = self.bn_3(self.conv_3(x))
-        x_1 = self.bn_1(self.conv_1(x))
+        if self.training:
+            x_3 = self.bn_3(self.conv_3(x))
+            x_1 = self.bn_1(self.conv_1(x))
 
-        x_0 = self.bn_0(x[:, :, ::2, ::2])
+            x_0 = self.bn_0(x[:, :, ::2, ::2])
 
-        return F.relu(x_3 + x_1 + x_0)
-
-    def reparam(self):
-        pass
-
-    def forward_inference(self, x):
-        pass
+            return F.relu(x_3 + x_1 + x_0)
+        else:
+            x = F.relu(self.rep_conv(x))
 
 
 class RepVGGStage(nn.Module):
@@ -119,8 +137,8 @@ class RepVGGStage(nn.Module):
     def __init__(self, in_channels, out_channels, N, a, b):
         super(RepVGGStage, self).__init__()
 
-        self.in_channels = a * in_channels
-        self.out_channels = a * out_channels
+        self.in_channels = int(a * in_channels)
+        self.out_channels = int(a * out_channels)
 
         self.sequential = nn.Sequential(
             *[RepVGGBlock(in_channels=in_channels, out_channels=self.out_channels)]
@@ -135,6 +153,13 @@ class RepVGGStage(nn.Module):
 
     def forward(self, x):
         return self.sequential(x)
+
+    def _reparam(self):
+        with torch.no_grad():
+            for stage in self.sequential:
+                reparam_weight, reparam_bias = reparam_func(stage)
+                stage.rep_conv.weight = reparam_weight
+                stage.rep_conv.bias = reparam_bias
 
 
 class RepVGG(nn.Module):
@@ -165,7 +190,7 @@ class RepVGG(nn.Module):
                     a=a,
                     b=b,
                 )
-                for i in range(1, 5)
+                for i in range(1, len(filter_depth))
             ]
         )
 
@@ -179,16 +204,20 @@ class RepVGG(nn.Module):
 
         return self.fc(x)
 
+    def _reparam(self):
+        for stage in self.stages:
+            stage._reparam()
+
 
 if __name__ == "__main__":
 
-    model = RepVGG()
+    model = RepVGG(
+        filter_depth=[1, 4, 14],
+        filter_list=[16, 32, 64],
+    )
 
-    # img = torch.ones(1,3,112,112)
-    model = RepVGGBlock(in_channels=64, out_channels=64)
+    input = torch.ones([1, 3, 32, 32])
 
-    # Recipe is:
+    print(model(input).shape)
 
-    reparam_weight, reparam_bias = reparam_func(model, num_channels=64)
-
-    print(reparam_weight.shape, reparam_bias.shape)
+    model._reparam()
