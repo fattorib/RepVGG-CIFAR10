@@ -17,8 +17,7 @@ def _weights_init(m):
 
 
 class RepVGGBlock(nn.Module):
-    """Single RepVGG block. We build these into distinct 'stages'
-    """
+    """Single RepVGG block. We build these into distinct 'stages'"""
 
     def __init__(self, in_channels, out_channels):
         super(RepVGGBlock, self).__init__()
@@ -47,7 +46,7 @@ class RepVGGBlock(nn.Module):
             # Use identity branch
             self.bn_0 = nn.BatchNorm2d(num_features=out_channels)
             self.identity = True
-        
+
         self.apply(_weights_init)
 
     def forward(self, x):
@@ -134,7 +133,6 @@ class RepVGGStage(nn.Module):
             + [DownsampleRepVGGBlock(num_channels=self.out_channels)]
         )
 
-
     def forward(self, x):
         return self.sequential(x)
 
@@ -173,8 +171,6 @@ class RepVGG(nn.Module):
 
         self.fc = nn.Linear(in_features=filter_list[-1], out_features=10)
 
-        
-
     def forward(self, x):
 
         x = self.stages(x)
@@ -182,10 +178,6 @@ class RepVGG(nn.Module):
         x = torch.mean(x, axis=(2, 3))
 
         return self.fc(x)
-
-
-
-
 
 
 if __name__ == "__main__":
@@ -198,6 +190,5 @@ if __name__ == "__main__":
     # Recipe is:
 
     reparam_weight, reparam_bias = reparam_func(model, num_channels=64)
-
 
     print(reparam_weight.shape, reparam_bias.shape)

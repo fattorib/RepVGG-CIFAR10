@@ -20,8 +20,6 @@ def reparam_func(layer, num_channels):
 
     reparam_weight = torch.zeros_like(layer.conv_3.weight)
 
-     
-
     reparam_bias = torch.zeros(num_channels)
 
     # 3x3 weight fuse
@@ -50,7 +48,7 @@ def reparam_func(layer, num_channels):
     reparam_weight += F.pad(reparam_weight_1, (1, 1, 1, 1), mode="constant", value=0)
     reparam_bias += reparam_bias_1
 
-    #Check if in/out filters are equal, if not, we skip the identity reparam
+    # Check if in/out filters are equal, if not, we skip the identity reparam
     if layer.conv_3.weight.shape[0] == layer.conv_3.weight.shape[1]:
 
         # idx weight fuse
@@ -65,7 +63,9 @@ def reparam_func(layer, num_channels):
             + layer.bn_0.bias
         )
 
-        reparam_weight += F.pad(reparam_weight_0, (1, 1, 1, 1), mode="constant", value=0)
+        reparam_weight += F.pad(
+            reparam_weight_0, (1, 1, 1, 1), mode="constant", value=0
+        )
         reparam_bias += reparam_bias_0
 
     return reparam_weight, reparam_bias
