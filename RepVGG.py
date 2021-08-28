@@ -134,14 +134,14 @@ class DownsampleRepVGGBlock(nn.Module):
 class RepVGGStage(nn.Module):
     """Single RepVGG stage. These are stacked together to form the full RepVGG architecture"""
 
-    def __init__(self, in_channels, out_channels, N, a, b):
+    def __init__(self, in_channels, out_channels, N, a,b= None):
         super(RepVGGStage, self).__init__()
 
-        self.in_channels = int(a * in_channels)
-        self.out_channels = int(a * out_channels)
+        self.in_channels = in_channels if in_channels == 3 else int(a * in_channels) 
+        self.out_channels = int(a * out_channels) if b is None else int(b * out_channels)
 
         self.sequential = nn.Sequential(
-            *[RepVGGBlock(in_channels=in_channels, out_channels=self.out_channels)]
+            *[RepVGGBlock(in_channels=self.in_channels, out_channels=self.out_channels)]
             + [
                 RepVGGBlock(
                     in_channels=self.out_channels, out_channels=self.out_channels
@@ -178,8 +178,7 @@ class RepVGG(nn.Module):
                     in_channels=3,
                     out_channels=filter_list[0],
                     N=filter_depth[0],
-                    a=a,
-                    b=b,
+                    a = a,
                 )
             ]
             + [
@@ -187,10 +186,19 @@ class RepVGG(nn.Module):
                     in_channels=filter_list[i - 1],
                     out_channels=filter_list[i],
                     N=filter_depth[i],
-                    a=a,
-                    b=b,
+                    a = a
+                    
                 )
-                for i in range(1, len(filter_depth))
+                for i in range(1, len(filter_depth)-1)
+            ]
+            + [
+                RepVGGStage(
+                    in_channels=filter_list[-2],
+                    out_channels=filter_list[-1],
+                    N=filter_depth[-1],
+                    a = a, 
+                    b = b)
+                    
             ]
         )
 
@@ -214,6 +222,8 @@ if __name__ == "__main__":
     model = RepVGG(
         filter_depth=[1, 4, 14],
         filter_list=[16, 32, 64],
+        a = 1,
+        b = 1
     )
 
     input = torch.ones([1, 3, 32, 32])
