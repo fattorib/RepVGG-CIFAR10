@@ -16,7 +16,8 @@ def _weights_init(m):
 
 
 class RepVGGBlock(nn.Module):
-    """Single RepVGG block. We build these into distinct 'stages'"""
+    """Single RepVGG block. We build these into distinct 'stages'
+    """
 
     def __init__(self, in_channels, out_channels):
         super(RepVGGBlock, self).__init__()
@@ -45,6 +46,8 @@ class RepVGGBlock(nn.Module):
             # Use identity branch
             self.bn_0 = nn.BatchNorm2d(num_features=out_channels)
             self.identity = True
+        
+        self.apply(_weights_init)
 
     def forward(self, x):
         x_3 = self.bn_3(self.conv_3(x))
@@ -66,7 +69,7 @@ class RepVGGBlock(nn.Module):
 
 
 class DownsampleRepVGGBlock(nn.Module):
-    """Single RepVGG block. We build these into distinct 'stages'"""
+    """Downsample RepVGG block. Comes at the end of a stage"""
 
     def __init__(self, num_channels):
         super(DownsampleRepVGGBlock, self).__init__()
@@ -93,6 +96,8 @@ class DownsampleRepVGGBlock(nn.Module):
         # We pad the identity the usual way
         self.bn_0 = nn.BatchNorm2d(num_features=num_channels)
 
+        self.apply(_weights_init)
+
     def forward(self, x):
         x_3 = self.bn_3(self.conv_3(x))
         x_1 = self.bn_1(self.conv_1(x))
@@ -109,7 +114,7 @@ class DownsampleRepVGGBlock(nn.Module):
 
 
 class RepVGGStage(nn.Module):
-    """Single RepVGG stage. These are stacked together to form a full RepVGG model"""
+    """Single RepVGG stage. These are stacked together to form the full RepVGG architecture"""
 
     def __init__(self, in_channels, out_channels, N, a, b):
         super(RepVGGStage, self).__init__()
@@ -127,6 +132,7 @@ class RepVGGStage(nn.Module):
             ]
             + [DownsampleRepVGGBlock(num_channels=self.out_channels)]
         )
+
 
     def forward(self, x):
         return self.sequential(x)
@@ -166,6 +172,8 @@ class RepVGG(nn.Module):
 
         self.fc = nn.Linear(in_features=filter_list[-1], out_features=10)
 
+        
+
     def forward(self, x):
 
         x = self.stages(x)
@@ -173,6 +181,69 @@ class RepVGG(nn.Module):
         x = torch.mean(x, axis=(2, 3))
 
         return self.fc(x)
+
+
+
+def reparam_func(layer, num_channels):
+    """[summary]
+
+    Args:
+        layer: Single RepVGG block
+
+        Returns the reparamitrized weights
+    """
+
+    reparam_weight = torch.zeros_like(layer.conv_3.weight)
+
+     
+
+    reparam_bias = torch.zeros(num_channels)
+
+    # 3x3 weight fuse
+    std = (layer.bn_3.running_var + layer.bn_3.eps).sqrt()
+    t = (layer.bn_3.weight / std).reshape(-1, 1, 1, 1)
+
+    reparam_weight_3 = layer.conv_3.weight * t
+    reparam_bias_3 = (
+        -(layer.bn_3.running_mean * layer.bn_3.weight / layer.bn_3.running_var)
+        + layer.bn_3.bias
+    )
+
+    # 1x1 weight fuse
+    std = (layer.bn_1.running_var + layer.bn_1.eps).sqrt()
+    t = (layer.bn_1.weight / std).reshape(-1, 1, 1, 1)
+
+    reparam_weight_1 = layer.conv_1.weight * t
+    reparam_bias_1 = (
+        -(layer.bn_1.running_mean * layer.bn_1.weight / layer.bn_1.running_var)
+        + layer.bn_1.bias
+    )
+
+    reparam_weight += reparam_weight_3
+    reparam_bias += reparam_bias_3
+
+    reparam_weight += F.pad(reparam_weight_1, (1, 1, 1, 1), mode="constant", value=0)
+    reparam_bias += reparam_bias_1
+
+    #Check if in/out filters are equal, if not, we skip the identity reparam
+    if layer.conv_3.weight.shape[0] == layer.conv_3.weight.shape[1]:
+
+        # idx weight fuse
+        std = (layer.bn_0.running_var + layer.bn_0.eps).sqrt()
+        t = (layer.bn_0.weight / std).reshape(-1, 1, 1, 1)
+
+        channel_shape = layer.conv_3.weight.shape
+
+        reparam_weight_0 = torch.ones([channel_shape[0], channel_shape[1], 1, 1]) * t
+        reparam_bias_0 = (
+            -(layer.bn_0.running_mean * layer.bn_0.weight / layer.bn_0.running_var)
+            + layer.bn_0.bias
+        )
+
+        reparam_weight += F.pad(reparam_weight_0, (1, 1, 1, 1), mode="constant", value=0)
+        reparam_bias += reparam_bias_0
+
+    return reparam_weight, reparam_bias
 
 
 if __name__ == "__main__":
@@ -184,61 +255,7 @@ if __name__ == "__main__":
 
     # Recipe is:
 
-    # 1. Create 3 3x3 kernels and bias vectors
+    reparam_weight, reparam_bias = reparam_func(model, num_channels=64)
 
-    reparam_weight = torch.zeros_like(model.conv_3.weight)
 
-    # Size of out filter
-    reparam_bias = torch.zeros(64)
-
-    # 3x3
-    std = (model.bn_3.running_var + model.bn_3.eps).sqrt()
-    t = (model.bn_3.weight / std).reshape(-1, 1, 1, 1)
-
-    reparam_weight_3 = model.conv_3.weight * t
-    reparam_bias_3 = (
-        -(model.bn_3.running_mean * model.bn_3.weight / model.bn_3.running_var)
-        + model.bn_3.bias
-    )
-
-    # 1x1
-    std = (model.bn_1.running_var + model.bn_1.eps).sqrt()
-    t = (model.bn_1.weight / std).reshape(-1, 1, 1, 1)
-
-    reparam_weight_1 = model.conv_1.weight * t
-    reparam_bias_1 = (
-        -(model.bn_1.running_mean * model.bn_1.weight / model.bn_1.running_var)
-        + model.bn_1.bias
-    )
-
-    # idx
-    std = (model.bn_0.running_var + model.bn_0.eps).sqrt()
-    t = (model.bn_0.weight / std).reshape(-1, 1, 1, 1)
-
-    reparam_weight_0 = torch.ones([64, 64, 1, 1]) * t
-    reparam_bias_0 = (
-        -(model.bn_0.running_mean * model.bn_0.weight / model.bn_0.running_var)
-        + model.bn_0.bias
-    )
-
-    reparam_weight = reparam_weight_3
-    reparam_bias = reparam_bias_3
-
-    reparam_weight += F.pad(reparam_weight_1, (1, 1, 1, 1), mode="constant", value=0)
-    reparam_bias += reparam_bias_1
-
-    reparam_weight += F.pad(reparam_weight_0, (1, 1, 1, 1), mode="constant", value=0)
-    reparam_bias += reparam_bias_0
-
-    print(reparam_weight.shape)
-    print(reparam_bias.shape)
-
-    # # reparam_bias = None
-
-    # reparam_weight += model.conv_3.weight
-    # reparam_weight += F.pad(model.conv_1.weight,(1,1,1,1),mode = 'constant',value=0)
-
-    # print(model.conv_3.weight.shape)
-
-    # #Pad these
-    # # print(F.pad(model.conv_1.weight,(1,1,1,1),mode = 'constant',value=0).shape)
+    print(reparam_weight.shape, reparam_bias.shape)
