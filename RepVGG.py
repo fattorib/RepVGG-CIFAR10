@@ -128,7 +128,7 @@ class DownsampleRepVGGBlock(nn.Module):
 
             return F.relu(x_3 + x_1 + x_0)
         else:
-            x = F.relu(self.rep_conv(x))
+            return F.relu(self.rep_conv(x))
 
 
 class RepVGGStage(nn.Module):
@@ -158,8 +158,8 @@ class RepVGGStage(nn.Module):
         with torch.no_grad():
             for stage in self.sequential:
                 reparam_weight, reparam_bias = reparam_func(stage)
-                stage.rep_conv.weight = reparam_weight
-                stage.rep_conv.bias = reparam_bias
+                stage.rep_conv.weight.data = reparam_weight
+                stage.rep_conv.bias.data = reparam_bias
 
 
 class RepVGG(nn.Module):
@@ -202,13 +202,17 @@ class RepVGG(nn.Module):
             ]
         )
 
-        self.fc = nn.Linear(in_features=filter_list[-1], out_features=10)
+        self.fc = nn.Linear(in_features=int(b*filter_list[-1]), out_features=10)
+
+        self.apply(_weights_init)
 
     def forward(self, x):
 
         x = self.stages(x)
 
-        x = torch.mean(x, axis=(2, 3))
+        # Global average pooling
+        x = F.avg_pool2d(x, x.size()[3])
+        x = x.view(x.size(0), -1)
 
         return self.fc(x)
 
@@ -220,10 +224,10 @@ class RepVGG(nn.Module):
 if __name__ == "__main__":
 
     model = RepVGG(
-        filter_depth=[1, 4, 14],
+        filter_depth=[1, 4, 8],
         filter_list=[16, 32, 64],
-        a = 1,
-        b = 1
+        a = 0.75,
+        b = 2.5
     )
 
     input = torch.ones([1, 3, 32, 32])
@@ -231,3 +235,7 @@ if __name__ == "__main__":
     print(model(input).shape)
 
     model._reparam()
+
+    model.eval()
+    print(model(input).shape)
+

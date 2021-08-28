@@ -56,7 +56,7 @@ def parse():
 
     parser.add_argument(
         "--epochs",
-        default=200,
+        default=120,
         type=int,
         metavar="N",
         help="number of total epochs to run",
@@ -106,15 +106,14 @@ def parse():
     parser.add_argument("--RandAugM", type=int, default=2)
     parser.add_argument("--Mixed-Precision", type=bool, default=True)
     parser.add_argument("--num-classes", type=int, default=10)
-    parser.add_argument("--cyclic-lr", type=bool, default=False)
-    parser.add_argument("--cos-anneal", type=bool, default=False)
+    parser.add_argument("--cos-anneal", type=bool, default=True)
     parser.add_argument("--disable-cos", type=bool, default=False)
-    parser.add_argument("--base-lr", type=float, default=0.0005)
+    parser.add_argument("--base-lr", type=float, default=0.1)
     parser.add_argument("--warmup", type=int, default=5)
     parser.add_argument("--model", type=str)
     parser.add_argument("--image-size", type=int, default=32)
-    parser.add_argument("--filter-list", type=list, default=[64, 64, 128, 256, 512])
-    parser.add_argument("--filter-depth", type=list, default=[1, 2, 4, 14, 1])
+    parser.add_argument("--filter-list", type=list, default=[16, 32, 64])
+    parser.add_argument("--filter-depth", type=list, default=[1, 4, 8])
     parser.add_argument("--a", type=float, default=1)
     parser.add_argument("--b", type=float, default=1)
 

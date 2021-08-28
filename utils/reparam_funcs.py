@@ -64,4 +64,4 @@ def reparam_func(layer):
         )
         reparam_bias += reparam_bias_0
 
-    return nn.Parameter(reparam_weight), nn.Parameter(reparam_bias)
+    return reparam_weight, reparam_bias
