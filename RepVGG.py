@@ -10,11 +10,12 @@ from torch import Tensor
 from utils import reparam_funcs
 from utils.reparam_funcs import reparam_func
 
-# TBD
+
 def _weights_init(m):
     classname = m.__class__.__name__
     if isinstance(m, nn.Linear) or isinstance(m, nn.Conv2d):
         init.kaiming_normal_(m.weight, mode="fan_out", nonlinearity="relu")
+
 
 
 class RepVGGBlock(nn.Module):
@@ -39,6 +40,7 @@ class RepVGGBlock(nn.Module):
             kernel_size=(1, 1),
             padding=0,
             stride=1,
+            bias = False
         )
         self.bn_1 = nn.BatchNorm2d(num_features=out_channels)
 
@@ -59,12 +61,10 @@ class RepVGGBlock(nn.Module):
             stride=1,
             bias=True,
         )
-
-        for param in self.rep_conv.parameters():
-            param.requires_grad = False
+        self.reparam = False
 
     def forward(self, x):
-        if self.training:
+        if not self.reparam:
             x_3 = self.bn_3(self.conv_3(x))
             x_1 = self.bn_1(self.conv_1(x))
 
@@ -76,6 +76,7 @@ class RepVGGBlock(nn.Module):
             else:
                 return F.relu(x_3 + x_1)
         else:
+            
             return F.relu(self.rep_conv(x))
 
 
@@ -101,6 +102,7 @@ class DownsampleRepVGGBlock(nn.Module):
             kernel_size=(1, 1),
             padding=0,
             stride=(2, 2),
+            bias = False
         )
         self.bn_1 = nn.BatchNorm2d(num_features=num_channels)
 
@@ -118,9 +120,10 @@ class DownsampleRepVGGBlock(nn.Module):
             stride=(2, 2),
             bias=True,
         )
+        self.reparam = False
 
     def forward(self, x):
-        if self.training:
+        if not self.reparam:
             x_3 = self.bn_3(self.conv_3(x))
             x_1 = self.bn_1(self.conv_1(x))
 
@@ -128,17 +131,20 @@ class DownsampleRepVGGBlock(nn.Module):
 
             return F.relu(x_3 + x_1 + x_0)
         else:
+            
             return F.relu(self.rep_conv(x))
 
 
 class RepVGGStage(nn.Module):
     """Single RepVGG stage. These are stacked together to form the full RepVGG architecture"""
 
-    def __init__(self, in_channels, out_channels, N, a,b= None):
+    def __init__(self, in_channels, out_channels, N, a, b=None):
         super(RepVGGStage, self).__init__()
 
-        self.in_channels = in_channels if in_channels == 3 else int(a * in_channels) 
-        self.out_channels = int(a * out_channels) if b is None else int(b * out_channels)
+        self.in_channels = in_channels if in_channels == 3 else int(a * in_channels)
+        self.out_channels = (
+            int(a * out_channels) if b is None else int(b * out_channels)
+        )
 
         self.sequential = nn.Sequential(
             *[RepVGGBlock(in_channels=self.in_channels, out_channels=self.out_channels)]
@@ -154,12 +160,23 @@ class RepVGGStage(nn.Module):
     def forward(self, x):
         return self.sequential(x)
 
+
+
     def _reparam(self):
         with torch.no_grad():
             for stage in self.sequential:
+                # print(stage)
                 reparam_weight, reparam_bias = reparam_func(stage)
                 stage.rep_conv.weight.data = reparam_weight
                 stage.rep_conv.bias.data = reparam_bias
+                stage.reparam = True
+
+    def _train(self):
+        with torch.no_grad():
+            for stage in self.sequential:
+                stage.reparam = False
+
+                
 
 
 class RepVGG(nn.Module):
@@ -178,7 +195,7 @@ class RepVGG(nn.Module):
                     in_channels=3,
                     out_channels=filter_list[0],
                     N=filter_depth[0],
-                    a = a,
+                    a=a,
                 )
             ]
             + [
@@ -186,29 +203,31 @@ class RepVGG(nn.Module):
                     in_channels=filter_list[i - 1],
                     out_channels=filter_list[i],
                     N=filter_depth[i],
-                    a = a
-                    
+                    a=a,
                 )
-                for i in range(1, len(filter_depth)-1)
+                for i in range(1, len(filter_depth) - 1)
             ]
             + [
                 RepVGGStage(
                     in_channels=filter_list[-2],
                     out_channels=filter_list[-1],
                     N=filter_depth[-1],
-                    a = a, 
-                    b = b)
-                    
+                    a=a,
+                    b=b,
+                )
             ]
         )
 
-        self.fc = nn.Linear(in_features=int(b*filter_list[-1]), out_features=10)
+        self.fc = nn.Linear(in_features=int(b * filter_list[-1]), out_features=10)
 
         self.apply(_weights_init)
+
+        
 
     def forward(self, x):
 
         x = self.stages(x)
+        
 
         # Global average pooling
         x = F.avg_pool2d(x, x.size()[3])
@@ -220,25 +239,77 @@ class RepVGG(nn.Module):
         for stage in self.stages:
             stage._reparam()
 
+    def _train(self):
+        for stage in self.stages:
+            stage._train()
+
+            
+
 
 if __name__ == "__main__":
 
+    #Something still isn't right here. Unstable when network is very deep
     model = RepVGG(
         filter_depth=[1, 4, 8],
         filter_list=[16, 32, 64],
         a = 0.75,
         b = 2.5
-    ).cuda()
+    )
 
-    input = torch.ones([1, 3, 32, 32]).cuda()
+    # QA
+    model.eval()
 
+    input = torch.randn(1,3,32,32)
 
-   
-
-    print(model(input).shape)
+    out_train = model(input)
 
     model._reparam()
 
-    model.eval()
-    print(model(input).shape)
+    out_eval = model(input)
 
+    model._use_train_branches()
+
+    print(((out_train - out_eval) ** 2).sum())
+
+
+    out_train_2 = model(input)
+
+    print(((out_train - out_train_2) ** 2).sum())
+
+    # model = RepVGGStage(in_channels=64,out_channels=512,N = 5, a= 1)
+
+    # model.eval()
+
+
+    # input = torch.randn(1, 64, 32, 32)
+
+    # out_train = model(input)
+
+    # model._reparam()
+
+
+    # out_eval = model(input)
+
+    # print(((out_train - out_eval) ** 2).sum())
+
+
+    # model = RepVGGBlock(in_channels=64, out_channels=128)
+
+    # # model = DownsampleRepVGGBlock(num_channels=64)
+
+    # model.eval()
+
+
+    # input = torch.randn(1, 64, 32, 32)
+
+    # out_train = model(input)
+
+    # reparam_weight, reparam_bias = reparam_func(model)
+    # model.rep_conv.weight.data = reparam_weight
+    # model.rep_conv.bias.data = reparam_bias
+
+    # model.reparam = True
+
+    # out_eval = model(input)
+
+    # print(((out_train - out_eval) ** 2).sum())

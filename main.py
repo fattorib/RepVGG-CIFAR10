@@ -323,8 +323,6 @@ def main():
             scheduler=scheduler,
         )
 
-        prec1, prec5, test_loss = validate(test_loader, model, criterion)
-
         _, _, val_loss = validate(validation_loader, model, criterion)
 
         if epoch % 10 == 0:
@@ -373,6 +371,9 @@ def train(train_loader, model, criterion, optimizer, epoch, scaler, scheduler=No
     # switch to train mode
     model.train()
 
+    #Make sure we are using train branches, not inference branches
+    model._train()
+
     for i, (images, target) in enumerate(train_loader):
 
         optimizer.zero_grad()
@@ -393,27 +394,7 @@ def train(train_loader, model, criterion, optimizer, epoch, scaler, scheduler=No
             scaler.step(optimizer)
             scaler.update()
 
-        # else:
-        #     if mixup:
-        #         images, targets_a, targets_b, lam = mixup_data(
-        #             images, target, args.mixup
-        #         )
-        #         output = model(images)
-        #         loss = mixup_criterion(
-        #             output, targets_a, targets_b, lam, criterion=criterion
-        #         )
-        #     else:
-        #         output = model(images)
-        #         loss = criterion(output, target)
-        #     loss.backward()
-        #     torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-        #     if args.cyclic_lr:
-        #         optimizer.step()
-        #         scheduler.step()
-        #     elif args.cos_anneal:
-        #         optimizer.step()
-        #     else:
-        #         optimizer.step()
+       
 
         # Measure accuracy
         prec1, prec5 = accuracy(output.data, target, topk=(1, 5))
@@ -464,7 +445,7 @@ def validate(loader, model, criterion, scaler=None):
     # switch to evaluate mode
     model.eval()
 
-    #Update the reparam
+    # Update the reparam
     model._reparam()
 
     end = time.time()
@@ -490,6 +471,8 @@ def validate(loader, model, criterion, scaler=None):
         # measure elapsed time
         batch_time.update(time.time() - end)
         end = time.time()
+    
+    
 
     print(f"* Prec@1 {top1.avg.item():.3f} Prec@5 {top5.avg.item():.3f}")
 
