@@ -14,7 +14,8 @@ from utils.reparam_funcs import reparam_func
 def _weights_init(m):
     classname = m.__class__.__name__
     if isinstance(m, nn.Linear) or isinstance(m, nn.Conv2d):
-        init.kaiming_normal_(m.weight, mode="fan_out", nonlinearity="relu")
+        # init.kaiming_normal_(m.weight, mode="fan_out", nonlinearity="relu")
+        pass
 
 
 
@@ -182,10 +183,10 @@ class RepVGGStage(nn.Module):
 class RepVGG(nn.Module):
     def __init__(
         self,
-        filter_depth=[1, 2, 4, 14, 1],
-        filter_list=[64, 64, 128, 256, 512],
+        filter_depth=[1, 4, 4, 4,1],
+        filter_list=[16, 16, 32, 64,128],
         a=1,
-        b=1,
+        b=2.5,
     ):
         super(RepVGG, self).__init__()
 
@@ -249,12 +250,8 @@ class RepVGG(nn.Module):
 if __name__ == "__main__":
 
     #Something still isn't right here. Unstable when network is very deep
-    model = RepVGG(
-        filter_depth=[1, 4, 8],
-        filter_list=[16, 32, 64],
-        a = 0.75,
-        b = 2.5
-    )
+    model = RepVGG()
+    
 
     # QA
     model.eval()
@@ -267,16 +264,14 @@ if __name__ == "__main__":
 
     out_eval = model(input)
 
-    model._use_train_branches()
+    # model._use_train_branches()
 
     print(((out_train - out_eval) ** 2).sum())
 
 
-    out_train_2 = model(input)
+    
 
-    print(((out_train - out_train_2) ** 2).sum())
-
-    # model = RepVGGStage(in_channels=64,out_channels=512,N = 5, a= 1)
+    # model = RepVGGStage(in_channels=64,out_channels=128,N = 10, a= 1,b = 2.5)
 
     # model.eval()
 
