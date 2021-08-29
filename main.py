@@ -145,6 +145,7 @@ def main():
             model.parameters(),
             lr=args.base_lr,
             weight_decay=args.weight_decay,
+            momentum=0.9
         )
 
     if args.CIFAR10:
@@ -165,7 +166,7 @@ def main():
                 ),
             ]
         )
-        transform_train.transforms.insert(0, RandAugment(args.RandAugN, args.RandAugM))
+        # transform_train.transforms.insert(0, RandAugment(args.RandAugN, args.RandAugM))
 
         transform_test = transforms.Compose(
             [
@@ -294,8 +295,8 @@ def main():
     wandb.config.max_epochs = args.epochs
     wandb.config.batch_size = args.batch_size
     wandb.config.weight_decay = args.weight_decay
-    wandb.config.RandAugmentN = args.RandAugN
-    wandb.config.RandAugmentM = args.RandAugM
+    # wandb.config.RandAugmentN = args.RandAugN
+    # wandb.config.RandAugmentM = args.RandAugM
 
     wandb.config.ModelName = model.__class__.__name__
     wandb.config.FilterList = args.filter_list
