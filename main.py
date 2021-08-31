@@ -10,6 +10,7 @@ import torch.backends.cudnn as cudnn
 import torch.distributed as dist
 import torch.optim
 import torch.utils.data
+import torch.nn.functional as F
 import torch.utils.data.distributed
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets
@@ -25,6 +26,7 @@ from torchvision.datasets import CIFAR10, ImageFolder, CIFAR100
 import wandb
 
 from RepVGG import RepVGG
+from ResNet import ResNet
 
 try:
     import torch.cuda.amp as amp
@@ -99,6 +101,7 @@ def parse():
     parser.add_argument("--local_rank", default=0, type=int)
 
     # My additional args
+    parser.add_argument("--model", type=str, default='RepVGG')
     parser.add_argument("--CIFAR10", type=bool, default=False)
     parser.add_argument("--CIFAR100", type=bool, default=False)
     parser.add_argument("--Imagenet200", type=bool, default=False)
@@ -106,14 +109,14 @@ def parse():
     parser.add_argument("--RandAugM", type=int, default=2)
     parser.add_argument("--Mixed-Precision", type=bool, default=True)
     parser.add_argument("--num-classes", type=int, default=10)
-    parser.add_argument("--cos-anneal", type=bool, default=True)
+    parser.add_argument("--cos-anneal", type=bool, default=False)
+    parser.add_argument("--step-lr", type=bool, default=False)
     parser.add_argument("--disable-cos", type=bool, default=False)
     parser.add_argument("--base-lr", type=float, default=0.1)
     parser.add_argument("--warmup", type=int, default=5)
-    parser.add_argument("--model", type=str)
     parser.add_argument("--image-size", type=int, default=32)
-    parser.add_argument("--filter-list", type=list, default=[16, 32, 64])
-    parser.add_argument("--filter-depth", type=list, default=[1, 4, 8])
+    parser.add_argument("--filter-list", type=list, default=[16,16,32,64])
+    parser.add_argument("--filter-depth", type=list, default=[1, 2, 4, 14])
     parser.add_argument("--a", type=float, default=1)
     parser.add_argument("--b", type=float, default=1)
 
@@ -130,39 +133,55 @@ def main():
 
     if torch.cuda.is_available():
 
-        model = RepVGG(
-            filter_list=args.filter_list,
-            filter_depth=args.filter_depth,
-            a=args.a,
-            b=args.b,
-        )
+        if args.model == 'RepVGG':
+            model = RepVGG(
+                filter_list=args.filter_list,
+                filter_depth=args.filter_depth,
+                a=args.a,
+                b=args.b,
+                stride=[1, 1, 2, 2]
+            )
+        else:
+            model = ResNet(filters_list=[16, 32, 64], N=3)
 
         model = model.cuda()
         criterion = nn.CrossEntropyLoss().cuda()
 
     if args.cos_anneal:
+        assert args.step_lr == False
         optimizer = torch.optim.SGD(
             model.parameters(),
             lr=args.base_lr,
             weight_decay=args.weight_decay,
-            momentum=0.9
+            momentum=0.9,
         )
+
+    if args.step_lr:
+        assert args.cos_anneal == False
+        optimizer = torch.optim.SGD(
+            model.parameters(),
+            lr=args.base_lr,
+            weight_decay=args.weight_decay,
+            momentum=0.9,
+            nesterov=True
+        )
+        scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[90,135], gamma=0.1)
 
     if args.CIFAR10:
         assert args.num_classes == 10, "Must have 10 output classes for CIFAR10"
         # Use CIFAR-10 data augmentations
         transform_train = transforms.Compose(
             [
-                transforms.Resize(args.image_size),
                 transforms.RandomCrop(
-                    (args.image_size, args.image_size),
-                    padding=args.image_size // 8,
+                    (32,32),
+                    padding=4,
                     fill=0,
                     padding_mode="constant",
                 ),
+                transforms.RandomHorizontalFlip(),
                 transforms.ToTensor(),
                 transforms.Normalize(
-                    mean=[0.4913, 0.4821, 0.4465], std=[0.2470, 0.2434, 0.2615]
+                    mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
                 ),
             ]
         )
@@ -170,10 +189,9 @@ def main():
 
         transform_test = transforms.Compose(
             [
-                transforms.Resize(args.image_size),
                 transforms.ToTensor(),
                 transforms.Normalize(
-                    mean=[0.4913, 0.4821, 0.4465], std=[0.2470, 0.2434, 0.2615]
+                    mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
                 ),
             ]
         )
@@ -199,6 +217,7 @@ def main():
                 transforms.RandomCrop(
                     (32, 32), padding=4, fill=0, padding_mode="constant"
                 ),
+                transforms.RandomHorizontalFlip(),
                 transforms.ToTensor(),
                 transforms.Normalize(
                     mean=[0.5071, 0.4867, 0.4408], std=[0.2675, 0.2565, 0.2761]
@@ -237,6 +256,7 @@ def main():
                 transforms.RandomCrop(
                     (64, 64), padding=8, fill=0, padding_mode="constant"
                 ),
+                transforms.RandomHorizontalFlip(),
                 transforms.ToTensor(),
                 transforms.Normalize(
                     mean=[0.480, 0.448, 0.397], std=[0.272, 0.265, 0.274]
@@ -323,6 +343,10 @@ def main():
             scaler=scaler,
             scheduler=scheduler,
         )
+        if args.step_lr:
+            scheduler.step()
+            lr = (scheduler.get_last_lr())[0]
+            
 
         _, _, val_loss = validate(validation_loader, model, criterion)
 
@@ -372,8 +396,9 @@ def train(train_loader, model, criterion, optimizer, epoch, scaler, scheduler=No
     # switch to train mode
     model.train()
 
-    #Make sure we are using train branches, not inference branches
-    model._train()
+    # Make sure we are using train branches, not inference branches
+    if args.model == 'RepVGG':
+        model._train()
 
     for i, (images, target) in enumerate(train_loader):
 
@@ -389,13 +414,9 @@ def train(train_loader, model, criterion, optimizer, epoch, scaler, scheduler=No
                 loss = criterion(output, target)
 
             scaler.scale(loss).backward()
-
-            scaler.unscale_(optimizer)
-            # torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             scaler.step(optimizer)
             scaler.update()
 
-       
 
         # Measure accuracy
         prec1, prec5 = accuracy(output.data, target, topk=(1, 5))
@@ -407,8 +428,6 @@ def train(train_loader, model, criterion, optimizer, epoch, scaler, scheduler=No
         top1.update((prec1), images.size(0))
         top5.update((prec5), images.size(0))
 
-        if torch.cuda.is_available():
-            torch.cuda.synchronize()
 
         if i % args.print_freq == 0 and args.local_rank == 0:
             print(
@@ -447,7 +466,8 @@ def validate(loader, model, criterion, scaler=None):
     model.eval()
 
     # Update the reparam
-    model._reparam()
+    if args.model == 'RepVGG':
+        model._reparam()
 
     end = time.time()
 
@@ -473,7 +493,11 @@ def validate(loader, model, criterion, scaler=None):
         batch_time.update(time.time() - end)
         end = time.time()
     
-    
+    model.train()
+
+    # Make sure we are using train branches, not inference branches
+    if args.model == 'RepVGG':
+        model._train()
 
     print(f"* Prec@1 {top1.avg.item():.3f} Prec@5 {top5.avg.item():.3f}")
 
