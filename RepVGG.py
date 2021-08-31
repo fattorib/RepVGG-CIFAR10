@@ -1,3 +1,4 @@
+from pickle import DUP
 import torch
 from torch.nn.modules import padding
 import torchvision
@@ -165,6 +166,26 @@ class RepVGGStage(nn.Module):
                 stage.rep_conv.bias.data = reparam_bias
                 stage.reparam = True
 
+
+    def switch_to_deploy(self):
+        for stage in self.sequential:
+            stage.reparam = True
+            #delete old attributes
+            if hasattr(stage, 'conv_3'):
+                delattr(stage,'conv_3')
+            
+            if hasattr(stage, 'conv_1'):
+                delattr(stage,'conv_1')
+
+            if hasattr(stage, 'bn_1'):
+                delattr(stage,'bn_1')
+            
+            if hasattr(stage, 'bn_0'):
+                delattr(stage,'bn_0')
+            
+            if hasattr(stage, 'bn_3'):
+                delattr(stage,'bn_3')
+
     def _train(self):
         with torch.no_grad():
             for stage in self.sequential:
@@ -231,11 +252,23 @@ class RepVGG(nn.Module):
     def _reparam(self):
         for stage in self.stages:
             stage._reparam()
+    
+    def _switch_to_deploy(self):
+        for module in self.modules():
+            if hasattr(module, 'switch_to_deploy'):
+                module.switch_to_deploy()
+        
 
     def _train(self):
         for stage in self.stages:
             stage._train()
 
+
+def deploy_model(model):
+    #Create a copy of model and switch to deploy
+    deployed_model = copy.deepcopy(model)
+    deployed_model._switch_to_deploy()
+    return deployed_model
 
 
 
@@ -259,7 +292,9 @@ if __name__ == "__main__":
 
     model._reparam()
 
-    out_eval = model(input)
+    deployed_model = deploy_model(model)
+
+    out_eval = deployed_model(input)
 
     print(((out_train - out_eval) ** 2).sum())
 
