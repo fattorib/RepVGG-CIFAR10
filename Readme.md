@@ -11,6 +11,8 @@ We use the same naming convention as the paper:
 | RepVGGA0 | (WIP)                           |
 | RepVGGA1 | 8.44                            |
 | RepVGGA2 | 7.71                            |
+
+| Model    | Top 1 Error %  (CIFAR10)        |
 | RepVGGB0 | (WIP)                           |
 | RepVGGB1 | (WIP)                           |
 | RepVGGB2 | (WIP)                           |
