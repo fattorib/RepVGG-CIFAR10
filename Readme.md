@@ -21,7 +21,7 @@ All RepVGG models have 5 stages with the same number of convolution filters per 
 
 ## Training
 
-All models are trained for 200 epochs RandAugment (N=1, M=2) standard CIFAR10/100 data augmentations are also included. 
+All 'A' models are trained for 200 epochs RandAugment (N=1, M=2) standard CIFAR10/100 data augmentations are also included, following the paper, 'B' models are trained for more epochs. 
 
 
 ## Results:
