@@ -8,6 +8,8 @@ We use the same naming convention as the paper:
 | RepVGG-A0 | 1,2,4,14,1                     |0.75|2.5|
 | RepVGG-A1 | 1,2,4,14,1                     |1|2.5|
 | RepVGG-A2 | 1,2,4,14,1                     |1.5|2.75|
+
+| Name    | Layers of each stage        | a | b |
 |----------|---------------------------------|----|----|
 | RepVGG-B0 | 1,4,6,16,1                     | 1 |2.5|
 | RepVGG-B1 | 1,4,6,16,1                     |2|4|
@@ -17,6 +19,11 @@ We use the same naming convention as the paper:
 All RepVGG models have 5 stages with the same number of convolution filters per stage:
 [1 x min(16,16a), 16,32,64,64]
 
+## Training
+
+All models are trained for 200 epochs RandAugment (N=1, M=2) standard CIFAR10/100 data augmentations are also included. 
+
+
 ## Results:
 
 | Model    | Top 1 Error %  (CIFAR10)        |
@@ -24,7 +31,8 @@ All RepVGG models have 5 stages with the same number of convolution filters per 
 | RepVGG-A0 | (WIP)                           |
 | RepVGG-A1 | 8.44                            |
 | RepVGG-A2 | 7.71                            |
-|----------|---------------------------------|
+
+| Model    | Top 1 Error %  (CIFAR10)        |
 | RepVGG-B0 | (WIP)                           |
 | RepVGG-B1 | (WIP)                           |
 | RepVGG-B2 | (WIP)                           |
