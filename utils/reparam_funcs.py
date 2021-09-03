@@ -1,4 +1,3 @@
-
 import torch
 from torch.nn.modules import padding
 import torchvision
@@ -39,9 +38,9 @@ def reparam_func(layer):
     reparam_weight += F.pad(reparam_weight_1, [1, 1, 1, 1], mode="constant", value=0)
     reparam_bias += reparam_bias_1
 
-    # Check if in/out filters are equal, if not, we skip the identity reparam
     if layer.conv_3.weight.shape[0] == layer.conv_3.weight.shape[1]:
-        if hasattr(layer, 'bn_0'):
+        # Check if in/out filters are equal, if not, we skip the identity reparam
+        if hasattr(layer, "bn_0"):
 
             # idx weight fuse - we only have access to bn_0
             std = (layer.bn_0.running_var + layer.bn_0.eps).sqrt()
@@ -72,7 +71,3 @@ def reparam_func(layer):
     assert reparam_weight.shape == layer.conv_3.weight.shape
 
     return reparam_weight, reparam_bias
-
-
-
-
