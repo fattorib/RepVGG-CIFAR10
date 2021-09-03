@@ -28,13 +28,13 @@ All models are trained for 200 epochs RandAugment (N=1, M=2) standard CIFAR10/10
 
 | Model    | Top 1 Error %  (CIFAR10)        |
 |----------|---------------------------------|
-| RepVGG-A0 | (WIP)                           |
+| RepVGG-A0 | 10.23                           |
 | RepVGG-A1 | 8.44                            |
 | RepVGG-A2 | 7.71                            |
 
 | Model    | Top 1 Error %  (CIFAR10)        |
 |----------|---------------------------------|
-| RepVGG-B0 | 6.43                           |
-| RepVGG-B1 | (WIP)                           |
+| RepVGG-B0 | (WIP)                           |
+| RepVGG-B1 | 6.43                            |
 | RepVGG-B2 | (WIP)                           |
 | RepVGG-B3 | (WIP)                           |
