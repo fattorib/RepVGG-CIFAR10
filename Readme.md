@@ -1,5 +1,5 @@
 # RepVGG - CIFAR10/100
-Implementation of the equivalent RepVGG networks for CIFAR10/100. Previous implementations use the original RepVGG filter widths, derived from the ResNet filters used ImageNet. 
+Implementation of the equivalent RepVGG networks for CIFAR10/100. Other existing implementations I have seen use the original RepVGG filter widths, for use on ImageNet which are overkill for CIFAR10/100. 
 
 ## Architecture
 We use the same naming convention as the paper:
@@ -21,8 +21,11 @@ All RepVGG models have 5 stages with the same number of convolution filters per 
 
 ## Training
 
-All 'A' models are trained for 200 epochs RandAugment (N=1, M=2) standard CIFAR10/100 data augmentations are also included, following the paper, 'B' models are trained for more epochs. 
+All 'A' models are trained for 200 epochs RandAugment (N=1, M=2) standard CIFAR10/100 data augmentations are also applied. Following the paper, 'B' models are trained for more epochs (250). 
 
+## Differences from Paper
+
+For the smaller 'A' models, I noticed that using a fixed learning rate decay by dividing the learning rate by 10 at 160 and 180 epochs improved the model performance slightly compared to the default Cosine annealing schedule. The larger 'B' model are all trained with Cosine annealing and learning rate warmup of 10 epochs. 
 
 ## Results:
 
