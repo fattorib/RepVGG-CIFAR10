@@ -1,9 +1,12 @@
 import argparse
+from copy import Error
 import os
 import shutil
 import time
 
 import torch
+
+# from torch._C import R
 import torch.nn as nn
 import torch.nn.parallel
 import torch.backends.cudnn as cudnn
@@ -25,8 +28,11 @@ from RandAugment import RandAugment
 from torchvision.datasets import CIFAR10, ImageFolder, CIFAR100
 import wandb
 
-from RepVGG import RepVGG
+from RepVGG import RepVGG, create_RepVGG_B0, deploy_model, create_RepVGG_A0,create_RepVGG_A1,create_RepVGG_A2,create_RepVGG_B0,create_RepVGG_B1,create_RepVGG_B2,create_RepVGG_B3
 from ResNet import ResNet
+
+
+from RepVggRef import RepVGGCIFAR, repvgg_model_convert
 
 try:
     import torch.cuda.amp as amp
@@ -34,6 +40,8 @@ except ImportError:
     raise ImportError("Your version of PyTorch is too old.")
 
 best_prec1 = 0
+
+# No weight decay on fc.bias, bn.bias, rbr_dense.bn.weight and rbr_1x1.bn.weight
 
 
 def parse():
@@ -101,7 +109,7 @@ def parse():
     parser.add_argument("--local_rank", default=0, type=int)
 
     # My additional args
-    parser.add_argument("--model", type=str, default='RepVGG')
+    parser.add_argument("--model", type=str, default="RepVGG")
     parser.add_argument("--CIFAR10", type=bool, default=False)
     parser.add_argument("--CIFAR100", type=bool, default=False)
     parser.add_argument("--Imagenet200", type=bool, default=False)
@@ -115,10 +123,7 @@ def parse():
     parser.add_argument("--base-lr", type=float, default=0.1)
     parser.add_argument("--warmup", type=int, default=5)
     parser.add_argument("--image-size", type=int, default=32)
-    parser.add_argument("--filter-list", type=list, default=[16,16,32,64])
-    parser.add_argument("--filter-depth", type=list, default=[1, 2, 4, 14])
-    parser.add_argument("--a", type=float, default=1)
-    parser.add_argument("--b", type=float, default=1)
+    parser.add_argument("--adam", type=bool, default=False)
 
     args = parser.parse_args()
     return args
@@ -133,39 +138,65 @@ def main():
 
     if torch.cuda.is_available():
 
-        if args.model == 'RepVGG':
-            model = RepVGG(
-                filter_list=args.filter_list,
-                filter_depth=args.filter_depth,
-                a=args.a,
-                b=args.b,
-                stride=[1, 1, 2, 2]
-            )
-        else:
+        if args.model == "RepVGGA0":
+            model = create_RepVGG_A0()
+        
+        if args.model == "RepVGGA1":
+            model = create_RepVGG_A1()
+
+        if args.model == "RepVGGA2":
+            model = create_RepVGG_A2()
+        
+        if args.model == "RepVGGB0":
+            model = create_RepVGG_B0()
+        
+        if args.model == "RepVGGB1":
+            model = create_RepVGG_B1()
+        
+        if args.model == "RepVGGB2":
+            model = create_RepVGG_B2()
+        
+        if args.model == "RepVGGB3":
+            model = create_RepVGG_B2()
+
+        
+        elif args.model == "ResNet":
             model = ResNet(filters_list=[16, 32, 64], N=3)
+
+        else:
+            pass
 
         model = model.cuda()
         criterion = nn.CrossEntropyLoss().cuda()
 
     if args.cos_anneal:
         assert args.step_lr == False
-        optimizer = torch.optim.SGD(
-            model.parameters(),
-            lr=args.base_lr,
-            weight_decay=args.weight_decay,
-            momentum=0.9,
-        )
+        # optimizer = torch.optim.SGD(
+        #     model.parameters(),
+        #     lr=args.base_lr,
+        #     weight_decay=args.weight_decay,
+        #     momentum=0.9,
+        #     nesterov=True,
+        # )
+
+        optimizer = create_optimizer(model, args.weight_decay, args.base_lr)
 
     if args.step_lr:
         assert args.cos_anneal == False
-        optimizer = torch.optim.SGD(
-            model.parameters(),
-            lr=args.base_lr,
-            weight_decay=args.weight_decay,
-            momentum=0.9,
-            nesterov=True
+
+        if args.adam:
+            optimizer = torch.optim.AdamW(
+                model.parameters(),
+                lr=1e-2,
+                weight_decay=args.weight_decay,
+            )
+        else:
+
+            optimizer = create_optimizer(model, args.weight_decay, args.base_lr)
+
+        scheduler = torch.optim.lr_scheduler.MultiStepLR(
+            optimizer, milestones=[130, 180], gamma=0.1
         )
-        scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[90,135], gamma=0.1)
 
     if args.CIFAR10:
         assert args.num_classes == 10, "Must have 10 output classes for CIFAR10"
@@ -173,7 +204,7 @@ def main():
         transform_train = transforms.Compose(
             [
                 transforms.RandomCrop(
-                    (32,32),
+                    (32, 32),
                     padding=4,
                     fill=0,
                     padding_mode="constant",
@@ -185,7 +216,7 @@ def main():
                 ),
             ]
         )
-        # transform_train.transforms.insert(0, RandAugment(args.RandAugN, args.RandAugM))
+        transform_train.transforms.insert(0, RandAugment(args.RandAugN, args.RandAugM))
 
         transform_test = transforms.Compose(
             [
@@ -315,14 +346,11 @@ def main():
     wandb.config.max_epochs = args.epochs
     wandb.config.batch_size = args.batch_size
     wandb.config.weight_decay = args.weight_decay
-    # wandb.config.RandAugmentN = args.RandAugN
-    # wandb.config.RandAugmentM = args.RandAugM
+    wandb.config.RandAugmentN = args.RandAugN
+    wandb.config.RandAugmentM = args.RandAugM
 
-    wandb.config.ModelName = model.__class__.__name__
-    wandb.config.FilterList = args.filter_list
-    wandb.config.FilterDpeth = args.filter_depth
-    wandb.config.a = args.a
-    wandb.config.b = args.b
+    wandb.config.ModelName = args.model
+
 
     scaler = None
     if args.Mixed_Precision:
@@ -346,7 +374,6 @@ def main():
         if args.step_lr:
             scheduler.step()
             lr = (scheduler.get_last_lr())[0]
-            
 
         _, _, val_loss = validate(validation_loader, model, criterion)
 
@@ -396,10 +423,6 @@ def train(train_loader, model, criterion, optimizer, epoch, scaler, scheduler=No
     # switch to train mode
     model.train()
 
-    # Make sure we are using train branches, not inference branches
-    if args.model == 'RepVGG':
-        model._train()
-
     for i, (images, target) in enumerate(train_loader):
 
         optimizer.zero_grad()
@@ -417,7 +440,6 @@ def train(train_loader, model, criterion, optimizer, epoch, scaler, scheduler=No
             scaler.step(optimizer)
             scaler.update()
 
-
         # Measure accuracy
         prec1, prec5 = accuracy(output.data, target, topk=(1, 5))
 
@@ -427,7 +449,6 @@ def train(train_loader, model, criterion, optimizer, epoch, scaler, scheduler=No
         losses.update((reduced_loss), images.size(0))
         top1.update((prec1), images.size(0))
         top5.update((prec5), images.size(0))
-
 
         if i % args.print_freq == 0 and args.local_rank == 0:
             print(
@@ -466,8 +487,11 @@ def validate(loader, model, criterion, scaler=None):
     model.eval()
 
     # Update the reparam
-    if args.model == 'RepVGG':
-        model._reparam()
+    if args.model == "RepVGG":
+        deployed_model = deploy_model(model)
+
+    elif args.model == "RepVGGRef":
+        deployed_model = repvgg_model_convert(model)
 
     end = time.time()
 
@@ -477,8 +501,17 @@ def validate(loader, model, criterion, scaler=None):
             images = images.cuda()
             target = target.cuda()
         with torch.no_grad():
-            output = model(images)
-            loss = criterion(output, target)
+            if args.model == "RepVGG":
+                output = deployed_model(images)
+                loss = criterion(output, target)
+
+            elif args.model == "RepVGGRef":
+                output = deployed_model(images)
+                loss = criterion(output, target)
+
+            else:
+                output = model(images)
+                loss = criterion(output, target)
 
         # measure accuracy and record loss
         prec1, prec5 = accuracy(output.data, target, topk=(1, 5))
@@ -492,12 +525,6 @@ def validate(loader, model, criterion, scaler=None):
         # measure elapsed time
         batch_time.update(time.time() - end)
         end = time.time()
-    
-    model.train()
-
-    # Make sure we are using train branches, not inference branches
-    if args.model == 'RepVGG':
-        model._train()
 
     print(f"* Prec@1 {top1.avg.item():.3f} Prec@5 {top5.avg.item():.3f}")
 
@@ -540,6 +567,32 @@ def adjust_learning_rate(optimizer, epoch, args):
         param_group["lr"] = lr
     # for tracking
     return lr
+
+
+def create_optimizer(model, weight_decay, lr):
+    params = []
+    for key, value in model.named_parameters():
+
+        if (
+            "fc.bias" in key
+            or "bias" in key
+            or "bn" in key
+            # or "conv_3" in key
+            # or "conv_1" in key
+        ):
+            print(f"No weight decay for paramater: {key}")
+            apply_weight_decay = 0
+            params += [
+                {"params": [value], "lr": lr, "weight_decay": apply_weight_decay}
+            ]
+
+        else:
+            apply_weight_decay = weight_decay
+            params += [
+                {"params": [value], "lr": lr, "weight_decay": apply_weight_decay}
+            ]
+
+    return torch.optim.SGD(params, lr, momentum=0.9, nesterov=True)
 
 
 if __name__ == "__main__":
