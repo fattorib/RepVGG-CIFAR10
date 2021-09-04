@@ -29,15 +29,15 @@ For the smaller 'A' models, I noticed that using a fixed learning rate decay by 
 
 ## Results:
 
-| Model    | Top 1 Error %  (CIFAR10)        |
-|----------|---------------------------------|
-| RepVGG-A0 | 10.23                           |
-| RepVGG-A1 | 8.44                            |
-| RepVGG-A2 | 7.71                            |
+| Model    | Top 1 Error %  (CIFAR10)        | Params (Train) | Params (Inference) |
+|----------|---------------------------------|----------|----------|
+| RepVGG-A0 | 10.23                          | 789K  | 372K |
+| RepVGG-A1 | 8.44                           | 1.33M | 630K |
+| RepVGG-A2 | 7.71                           | 2.87M | 1.36M |
 
-| Model    | Top 1 Error %  (CIFAR10)        |
-|----------|---------------------------------|
-| RepVGG-B0 | (WIP)                           |
-| RepVGG-B1 | 6.43                            |
-| RepVGG-B2 | (WIP)                           |
-| RepVGG-B3 | (WIP)                           |
+| Model    | Top 1 Error %  (CIFAR10)        | Params (Train) | Params (Inference) |
+|----------|---------------------------------|----------|----------|
+| RepVGG-B0 | (WIP)                          | 1.56M | 736K |
+| RepVGG-B1 | 6.43                           | 5.97M | 2.82M |
+| RepVGG-B2 | (WIP)                          | 9.31M | 4.4M |
+| RepVGG-B3 | 6.07                           | 13.16M| 6.23M |
