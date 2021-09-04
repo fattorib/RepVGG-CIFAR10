@@ -25,7 +25,7 @@ All 'A' models are trained for 200 epochs RandAugment (N=1, M=2) standard CIFAR1
 
 ## Differences from Paper
 
-For the smaller 'A' models, I noticed that using a fixed learning rate decay by dividing the learning rate by 10 at 160 and 180 epochs improved the model performance slightly compared to the default Cosine annealing schedule. The larger 'B' model are all trained with Cosine annealing and learning rate warmup of 10 epochs. 
+For the smaller 'A' models, I noticed that using a fixed learning rate decay by dividing the learning rate by 10 at 130 and 180 epochs improved the model performance slightly compared to the default Cosine annealing schedule. The larger 'B' model are all trained with Cosine annealing and learning rate warmup of 10 epochs. 
 
 ## Results:
 
