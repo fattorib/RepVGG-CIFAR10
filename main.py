@@ -30,7 +30,7 @@ import wandb
 
 from RepVGG import RepVGG, create_RepVGG_B0, deploy_model, create_RepVGG_A0,create_RepVGG_A1,create_RepVGG_A2,create_RepVGG_B0,create_RepVGG_B1,create_RepVGG_B2,create_RepVGG_B3
 from ResNet import ResNet
-
+from utils.utils import mixup_data, mixup_criterion, LabelSmoothingCrossEntropy
 
 from RepVggRef import RepVGGCIFAR, repvgg_model_convert
 
@@ -40,8 +40,6 @@ except ImportError:
     raise ImportError("Your version of PyTorch is too old.")
 
 best_prec1 = 0
-
-# No weight decay on fc.bias, bn.bias, rbr_dense.bn.weight and rbr_1x1.bn.weight
 
 
 def parse():
@@ -123,8 +121,9 @@ def parse():
     parser.add_argument("--base-lr", type=float, default=0.1)
     parser.add_argument("--warmup", type=int, default=5)
     parser.add_argument("--image-size", type=int, default=32)
-    parser.add_argument("--adam", type=bool, default=False)
-
+    parser.add_argument("--mixup", type=float, default=0.0)
+    parser.add_argument("--label-smoothing", type=bool, default=False)
+    
     args = parser.parse_args()
     return args
 
@@ -139,25 +138,25 @@ def main():
     if torch.cuda.is_available():
 
         if args.model == "RepVGGA0":
-            model = create_RepVGG_A0()
+            model = create_RepVGG_A0(num_classes=args.num_classes)
         
         if args.model == "RepVGGA1":
-            model = create_RepVGG_A1()
+            model = create_RepVGG_A1(num_classes=args.num_classes)
 
         if args.model == "RepVGGA2":
-            model = create_RepVGG_A2()
+            model = create_RepVGG_A2(num_classes=args.num_classes)
         
         if args.model == "RepVGGB0":
-            model = create_RepVGG_B0()
+            model = create_RepVGG_B0(num_classes=args.num_classes)
         
         if args.model == "RepVGGB1":
-            model = create_RepVGG_B1()
+            model = create_RepVGG_B1(num_classes=args.num_classes)
         
         if args.model == "RepVGGB2":
-            model = create_RepVGG_B2()
+            model = create_RepVGG_B2(num_classes=args.num_classes)
         
         if args.model == "RepVGGB3":
-            model = create_RepVGG_B2()
+            model = create_RepVGG_B2(num_classes=args.num_classes)
 
         
         elif args.model == "ResNet":
@@ -167,7 +166,11 @@ def main():
             pass
 
         model = model.cuda()
-        criterion = nn.CrossEntropyLoss().cuda()
+
+        if args.label_smoothing:
+            criterion = LabelSmoothingCrossEntropy().cuda()
+        else:
+            criterion = nn.CrossEntropyLoss().cuda()
 
     if args.cos_anneal:
         assert args.step_lr == False
@@ -350,11 +353,18 @@ def main():
     wandb.config.RandAugmentM = args.RandAugM
 
     wandb.config.ModelName = args.model
+    wandb.config.Dataset = 'CIFAR10' if args.CIFAR10 else 'TinyImagenet'
 
 
     scaler = None
     if args.Mixed_Precision:
         scaler = amp.GradScaler()
+    
+    global mixup
+    mixup = False
+    if args.mixup > 0:
+        mixup = True
+
 
     for epoch in range(0, args.epochs):
 
@@ -383,6 +393,7 @@ def main():
             wandb.log(
                 {
                     "acc@1": prec1,
+                    "acc@5": prec5,
                     "Learning Rate": lr,
                     "Training Loss": train_loss,
                     "Validation Loss": val_loss,
@@ -433,8 +444,15 @@ def train(train_loader, model, criterion, optimizer, epoch, scaler, scheduler=No
 
         if scaler is not None:
             with amp.autocast():
-                output = model(images)
-                loss = criterion(output, target)
+                if mixup:
+                    images, targets_a, targets_b, lam = mixup_data(
+                        images, target, args.mixup
+                    )
+                    output = model(images)
+                    loss = mixup_criterion(output, targets_a, targets_b, lam)
+                else:
+                    output = model(images)
+                    loss = criterion(output, target)
 
             scaler.scale(loss).backward()
             scaler.step(optimizer)
