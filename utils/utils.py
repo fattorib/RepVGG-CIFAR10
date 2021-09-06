@@ -5,6 +5,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 
+
 def mixup_data(x, y, alpha=1.0, use_cuda=True, p=0.5):
     """Returns mixed inputs, pairs of targets, and lambda"""
 
@@ -29,6 +30,7 @@ def mixup_data(x, y, alpha=1.0, use_cuda=True, p=0.5):
 
 def mixup_criterion(pred, y_a, y_b, lam, criterion=nn.CrossEntropyLoss()):
     return lam * criterion(pred, y_a) + (1 - lam) * criterion(pred, y_b)
+
 
 class LabelSmoothingCrossEntropy(nn.Module):
     """

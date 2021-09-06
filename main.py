@@ -28,7 +28,18 @@ from RandAugment import RandAugment
 from torchvision.datasets import CIFAR10, ImageFolder, CIFAR100
 import wandb
 
-from RepVGG import RepVGG, create_RepVGG_B0, deploy_model, create_RepVGG_A0,create_RepVGG_A1,create_RepVGG_A2,create_RepVGG_B0,create_RepVGG_B1,create_RepVGG_B2,create_RepVGG_B3
+from RepVGG import (
+    RepVGG,
+    create_RepVGG_B0,
+    deploy_model,
+    create_RepVGG_A0,
+    create_RepVGG_A1,
+    create_RepVGG_A2,
+    create_RepVGG_B0,
+    create_RepVGG_B1,
+    create_RepVGG_B2,
+    create_RepVGG_B3,
+)
 from ResNet import ResNet
 from utils.utils import mixup_data, mixup_criterion, LabelSmoothingCrossEntropy
 
@@ -122,7 +133,7 @@ def parse():
     parser.add_argument("--image-size", type=int, default=32)
     parser.add_argument("--mixup", type=float, default=0.0)
     parser.add_argument("--label-smoothing", type=bool, default=False)
-    
+
     args = parser.parse_args()
     return args
 
@@ -138,26 +149,25 @@ def main():
 
         if args.model == "RepVGGA0":
             model = create_RepVGG_A0(num_classes=args.num_classes)
-        
+
         if args.model == "RepVGGA1":
             model = create_RepVGG_A1(num_classes=args.num_classes)
 
         if args.model == "RepVGGA2":
             model = create_RepVGG_A2(num_classes=args.num_classes)
-        
+
         if args.model == "RepVGGB0":
             model = create_RepVGG_B0(num_classes=args.num_classes)
-        
+
         if args.model == "RepVGGB1":
             model = create_RepVGG_B1(num_classes=args.num_classes)
-        
+
         if args.model == "RepVGGB2":
             model = create_RepVGG_B2(num_classes=args.num_classes)
-        
+
         if args.model == "RepVGGB3":
             model = create_RepVGG_B2(num_classes=args.num_classes)
 
-        
         elif args.model == "ResNet":
             model = ResNet(filters_list=[16, 32, 64], N=3)
 
@@ -352,18 +362,16 @@ def main():
     wandb.config.RandAugmentM = args.RandAugM
 
     wandb.config.ModelName = args.model
-    wandb.config.Dataset = 'CIFAR10' if args.CIFAR10 else 'TinyImagenet'
-
+    wandb.config.Dataset = "CIFAR10" if args.CIFAR10 else "TinyImagenet"
 
     scaler = None
     if args.Mixed_Precision:
         scaler = amp.GradScaler()
-    
+
     global mixup
     mixup = False
     if args.mixup > 0:
         mixup = True
-
 
     for epoch in range(0, args.epochs):
 
