@@ -32,7 +32,6 @@ from RepVGG import RepVGG, create_RepVGG_B0, deploy_model, create_RepVGG_A0,crea
 from ResNet import ResNet
 from utils.utils import mixup_data, mixup_criterion, LabelSmoothingCrossEntropy
 
-from RepVggRef import RepVGGCIFAR, repvgg_model_convert
 
 try:
     import torch.cuda.amp as amp
