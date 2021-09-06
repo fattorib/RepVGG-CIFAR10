@@ -180,6 +180,7 @@ class RepVGG(nn.Module):
         filter_list=[16, 16, 32, 32, 64],
         stride=[1, 1, 1, 2, 2],
         width_factor = [1,1,1,2.5],
+        num_classes = 10
     ):
         super(RepVGG, self).__init__()
 
@@ -222,7 +223,7 @@ class RepVGG(nn.Module):
 
         
     
-        self.fc = nn.Linear(in_features=int(filter_list[-1]), out_features=10)
+        self.fc = nn.Linear(in_features=int(filter_list[-1]), out_features=num_classes)
 
         self.gap = nn.AdaptiveAvgPool2d(output_size=1)
 
@@ -259,66 +260,73 @@ def deploy_model(model):
     return deployed_model
 
 
-def create_RepVGG_A0():
+def create_RepVGG_A0(num_classes = 10):
     return RepVGG(
         filter_depth=[1, 2, 4, 14, 1],
         filter_list=[16, 16, 32, 64, 64],
         stride=[1, 1, 2, 2, 1],
-        width_factor=[0.75]*4 + [2.5]
+        width_factor=[0.75]*4 + [2.5],
+        num_classes= num_classes
     )
 
 
-def create_RepVGG_A1():
+def create_RepVGG_A1(num_classes = 10):
     return RepVGG(
         filter_depth=[1, 2, 4, 14, 1],
         filter_list=[16, 16, 32, 64, 64],
         stride=[1, 1, 2, 2, 1],
-        width_factor=[1]*4 + [2.5]
+        width_factor=[1]*4 + [2.5],
+        num_classes= num_classes
     )
 
 
-def create_RepVGG_A2():
+def create_RepVGG_A2(num_classes = 10):
     return RepVGG(
         filter_depth=[1, 2, 4, 14, 1],
         filter_list=[16, 16, 32, 64, 64],
         stride=[1, 1, 2, 2, 1],
-        width_factor=[1.5]*4 + [2.75]
+        width_factor=[1.5]*4 + [2.75],
+        num_classes= num_classes
     )
 
 
-def create_RepVGG_B0():
+def create_RepVGG_B0(num_classes = 10):
     return RepVGG(
         filter_depth=[1, 4, 6, 16, 1],
         filter_list=[16, 16, 32, 64, 64],
         # filter_list=[16, 16, 32, 64, 128],
         stride=[1, 1, 2, 2, 1],
-        width_factor=[1]*4 + [2.75]
+        width_factor=[1]*4 + [2.75],
+        num_classes= num_classes
     )
 
 
-def create_RepVGG_B1():
+def create_RepVGG_B1(num_classes = 10):
     return RepVGG(
         filter_depth=[1, 4, 6, 16, 1],
         filter_list=[16, 16, 32, 64, 64],
         stride=[1, 1, 2, 2, 1],
-        width_factor=[2]*4 + [4]
+        width_factor=[2]*4 + [4],
+        num_classes= num_classes
     )
 
-def create_RepVGG_B2():
+def create_RepVGG_B2(num_classes = 10):
     return RepVGG(
         filter_depth=[1, 4, 6, 16, 1],
         filter_list=[16, 16, 32, 64, 64],
         stride=[1, 1, 2, 2, 1],
-        width_factor=[2.5]*4 + [5]
+        width_factor=[2.5]*4 + [5],
+        num_classes= num_classes
     )
 
 
-def create_RepVGG_B3():
+def create_RepVGG_B3(num_classes = 10):
     return RepVGG(
         filter_depth=[1, 4, 6, 16, 1],
         filter_list=[16, 16, 32, 64, 64],
         stride=[1, 1, 2, 2, 1],
-        width_factor=[3]*4 + [5]
+        width_factor=[3]*4 + [5],
+        num_classes= num_classes
     )
 
 
