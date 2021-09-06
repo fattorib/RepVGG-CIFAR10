@@ -42,7 +42,7 @@ from RepVGG import (
 )
 from ResNet import ResNet
 from utils.utils import mixup_data, mixup_criterion, LabelSmoothingCrossEntropy
-
+from utils.ewma import EWMAModel
 
 try:
     import torch.cuda.amp as amp
@@ -133,6 +133,7 @@ def parse():
     parser.add_argument("--image-size", type=int, default=32)
     parser.add_argument("--mixup", type=float, default=0.0)
     parser.add_argument("--label-smoothing", type=bool, default=False)
+    parser.add_argument("--ewma", type=bool, default=False)
 
     args = parser.parse_args()
     return args
@@ -149,6 +150,7 @@ def main():
 
         if args.model == "RepVGGA0":
             model = create_RepVGG_A0(num_classes=args.num_classes)
+            
 
         if args.model == "RepVGGA1":
             model = create_RepVGG_A1(num_classes=args.num_classes)
@@ -176,10 +178,24 @@ def main():
 
         model = model.cuda()
 
+        if args.ewma:
+                
+            model.eval()
+            model_base = deploy_model(model)
+            model.train()
+
+            global ewma_model 
+            ewma_model = EWMAModel(base = model_base)
+
+        
+
         if args.label_smoothing:
             criterion = LabelSmoothingCrossEntropy().cuda()
         else:
             criterion = nn.CrossEntropyLoss().cuda()
+
+        
+
 
     if args.cos_anneal:
         assert args.step_lr == False
@@ -196,15 +212,9 @@ def main():
     if args.step_lr:
         assert args.cos_anneal == False
 
-        if args.adam:
-            optimizer = torch.optim.AdamW(
-                model.parameters(),
-                lr=1e-2,
-                weight_decay=args.weight_decay,
-            )
-        else:
+    
 
-            optimizer = create_optimizer(model, args.weight_decay, args.base_lr)
+        optimizer = create_optimizer(model, args.weight_decay, args.base_lr)
 
         scheduler = torch.optim.lr_scheduler.MultiStepLR(
             optimizer, milestones=[130, 180], gamma=0.1
@@ -515,8 +525,9 @@ def validate(loader, model, criterion, scaler=None):
     if args.model == "RepVGG":
         deployed_model = deploy_model(model)
 
-    elif args.model == "RepVGGRef":
-        deployed_model = repvgg_model_convert(model)
+        if args.ewma:
+            ewma_model.update(deployed_model.state_dict())
+            ewma_model.model.eval()
 
     end = time.time()
 
@@ -526,12 +537,12 @@ def validate(loader, model, criterion, scaler=None):
             images = images.cuda()
             target = target.cuda()
         with torch.no_grad():
-            if args.model == "RepVGG":
+            if args.model == "RepVGG" and not args.ewma:
                 output = deployed_model(images)
                 loss = criterion(output, target)
-
-            elif args.model == "RepVGGRef":
-                output = deployed_model(images)
+            
+            elif args.model == "RepVGG" and args.ewma:
+                output = ewma_model(images)
                 loss = criterion(output, target)
 
             else:
