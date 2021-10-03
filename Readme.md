@@ -40,7 +40,7 @@ The larger 'B' model are all trained with Cosine annealing and learning rate war
 |----------|---------------------------------|----------|----------|
 | RepVGG-B0 | 7.73                          | 1.56M | 736K |
 | RepVGG-B1 | 6.43                           | 5.97M | 2.82M |
-| RepVGG-B2 | (WIP)                          | 9.31M | 4.4M |
+| RepVGG-B2 | 5.2                          | 9.31M | 4.4M |
 | RepVGG-B3 | 4.96                           | 13.16M| 6.23M |
 
 Extra Results (RepVGGB3)
