@@ -26,14 +26,12 @@ To train one of the 'A' Models on CIFAR-10 you can run:
 
 ``` 
 python main.py --step-lr True --warmup 0 --epochs 201 --Mixed-Precision True --CIFAR10 True --model {Model Name Here}
-
 ```
 
 To train one of the 'B' Models on CIFAR-10 you can run:
 
 ``` 
 python main.py --cos-anneal True --warmup 10 --epochs 251 --Mixed-Precision True --CIFAR10 True --mixup 1.0 --label-smoothing True --model {Model Name Here}
-
 ```
 
 ## Training
