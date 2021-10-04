@@ -19,14 +19,32 @@ We use the same naming convention as the paper:
 All RepVGG models have 5 stages with the same number of convolution filters per stage:
 [1 x min(16,16a), 16,32,64,64]
 
+## Code 
+RepVGG implementation is my own work. Training script is modifided PyTorch Imagenet script. I used the [TIMM](https://github.com/rwightman/pytorch-image-models) scripts for Mixup and Label Smoothing CE. 
+
+To train one of the 'A' Models on CIFAR-10 you can run:
+
+``` 
+python main.py --step-lr True --warmup 0 --epochs 201 --Mixed-Precision True --CIFAR10 True --model {Model Name Here}
+
+```
+
+```
+To train one of the 'B' Models on CIFAR-10 you can run:
+
+``` 
+python main.py --cos-anneal True --warmup 10 --epochs 251 --Mixed-Precision True --CIFAR10 True --mixup 1.0 --label-smoothing True --model {Model Name Here}
+
+```
+
 ## Training
 
-All 'A' models are trained for 200 epochs RandAugment (N=1, M=2) standard CIFAR10/100 data augmentations are also applied. Following the paper, 'B' models are trained for more epochs (250). 
+All 'A' models are trained for 200 epochs RandAugment (N=1, M=2) and standard CIFAR10/100 data augmentations are also applied. Following the paper, 'B' models are trained for more epochs (250) and with stronger regularization (mixup + label smoothing). 
 
 ## Differences from Paper
 
 For the smaller 'A' models, I noticed that using a fixed learning rate decay by dividing the learning rate by 10 at 130 and 180 epochs improved the model performance slightly compared to the default Cosine annealing schedule. 
-The larger 'B' model are all trained with Cosine annealing and learning rate warmup of 10 epochs. In addition, label smoothing with probability 0.1 and mixup with alpha = 0.1 are utilized as well. 
+The larger 'B' model are all trained with Cosine annealing and learning rate warmup of 10 epochs. In addition, label smoothing with probability 0.1 and mixup with alpha = 1.0 are utilized as well. 
 
 ## Results:
 

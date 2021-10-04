@@ -53,7 +53,7 @@ best_prec1 = 0
 
 
 def parse():
-    parser = argparse.ArgumentParser(description="PyTorch ImageNet Training")
+    parser = argparse.ArgumentParser(description="PyTorch RepVGG CIFAR10/100 Training")
 
     parser.add_argument(
         "-data",
@@ -120,17 +120,14 @@ def parse():
     parser.add_argument("--model", type=str, default="RepVGG")
     parser.add_argument("--CIFAR10", type=bool, default=False)
     parser.add_argument("--CIFAR100", type=bool, default=False)
-    parser.add_argument("--Imagenet200", type=bool, default=False)
     parser.add_argument("--RandAugN", type=int, default=1)
     parser.add_argument("--RandAugM", type=int, default=2)
     parser.add_argument("--Mixed-Precision", type=bool, default=True)
     parser.add_argument("--num-classes", type=int, default=10)
     parser.add_argument("--cos-anneal", type=bool, default=False)
     parser.add_argument("--step-lr", type=bool, default=False)
-    parser.add_argument("--disable-cos", type=bool, default=False)
     parser.add_argument("--base-lr", type=float, default=0.1)
     parser.add_argument("--warmup", type=int, default=5)
-    parser.add_argument("--image-size", type=int, default=32)
     parser.add_argument("--mixup", type=float, default=0.0)
     parser.add_argument("--label-smoothing", type=bool, default=False)
     parser.add_argument("--ewma", type=bool, default=False)
@@ -187,32 +184,20 @@ def main():
             global ewma_model 
             ewma_model = EWMAModel(base = model_base)
 
-        
-
         if args.label_smoothing:
             criterion = LabelSmoothingCrossEntropy().cuda()
         else:
             criterion = nn.CrossEntropyLoss().cuda()
 
-        
 
 
     if args.cos_anneal:
         assert args.step_lr == False
-        # optimizer = torch.optim.SGD(
-        #     model.parameters(),
-        #     lr=args.base_lr,
-        #     weight_decay=args.weight_decay,
-        #     momentum=0.9,
-        #     nesterov=True,
-        # )
 
         optimizer = create_optimizer(model, args.weight_decay, args.base_lr)
 
     if args.step_lr:
         assert args.cos_anneal == False
-
-    
 
         optimizer = create_optimizer(model, args.weight_decay, args.base_lr)
 
@@ -301,43 +286,6 @@ def main():
             root="./CIFAR100", train=False, download=True, transform=transform_test
         )
 
-    if args.Imagenet200:
-        assert args.num_classes == 200, "Must have 200 output classes for Imagenet200"
-        transform_train = transforms.Compose(
-            [
-                transforms.Resize(64),
-                transforms.RandomCrop(
-                    (64, 64), padding=8, fill=0, padding_mode="constant"
-                ),
-                transforms.RandomHorizontalFlip(),
-                transforms.ToTensor(),
-                transforms.Normalize(
-                    mean=[0.480, 0.448, 0.397], std=[0.272, 0.265, 0.274]
-                ),
-            ]
-        )
-        transform_train.transforms.insert(0, RandAugment(args.RandAugN, args.RandAugM))
-
-        transform_test = transforms.Compose(
-            [
-                transforms.Resize(64),
-                transforms.ToTensor(),
-                transforms.Normalize(
-                    mean=[0.480, 0.448, 0.397], std=[0.272, 0.265, 0.274]
-                ),
-            ]
-        )
-        train_dataset = ImageFolder(
-            root="./tiny-imagenet-200/train", transform=transform_train
-        )
-
-        train_dataset, validation_dataset = torch.utils.data.random_split(
-            train_dataset, [85000, 15000]
-        )
-        test_dataset = ImageFolder(
-            root="./tiny-imagenet-200/val", transform=transform_train
-        )
-
     train_loader = torch.utils.data.DataLoader(
         train_dataset,
         batch_size=args.batch_size,
@@ -363,7 +311,6 @@ def main():
     )
 
     # Setup WandB logging here
-
     wandb_run = wandb.init(project="RepVGG")
     wandb.config.max_epochs = args.epochs
     wandb.config.batch_size = args.batch_size
@@ -372,7 +319,7 @@ def main():
     wandb.config.RandAugmentM = args.RandAugM
 
     wandb.config.ModelName = args.model
-    wandb.config.Dataset = "CIFAR10" if args.CIFAR10 else "TinyImagenet"
+    wandb.config.Dataset = "CIFAR10" if args.CIFAR10 else "CIFAR100"
 
     scaler = None
     if args.Mixed_Precision:
@@ -613,8 +560,6 @@ def create_optimizer(model, weight_decay, lr):
             "fc.bias" in key
             or "bias" in key
             or "bn" in key
-            # or "conv_3" in key
-            # or "conv_1" in key
         ):
             print(f"No weight decay for paramater: {key}")
             apply_weight_decay = 0
