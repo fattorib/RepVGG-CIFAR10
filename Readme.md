@@ -1,5 +1,5 @@
 # RepVGG - CIFAR10/100
-Implementation of the equivalent RepVGG networks for CIFAR10/100. Other existing implementations I have seen use the original RepVGG filter widths, for use on ImageNet which are overkill for CIFAR10/100. 
+PyTorch implementation of RepVGG networks for CIFAR10/100. Existing implementations I have seen use the original RepVGG filter widths, for use on ImageNet which are overkill for CIFAR10/100 and lead to very large models (even during inference), which is counter to what the authors intended. 
 
 ## Architecture
 We use the same naming convention as the paper:
@@ -58,6 +58,4 @@ The larger 'B' model are all trained with Cosine annealing and learning rate war
 | RepVGG-B2 | 5.20                          | 9.31M | 4.4M |
 | RepVGG-B3 | 4.96                           | 13.16M| 6.23M |
 
-Extra Results (RepVGGB3)
-4.28 top 1 error (500 epochs)
 
