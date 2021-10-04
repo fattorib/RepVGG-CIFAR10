@@ -20,7 +20,7 @@ All RepVGG models have 5 stages with the same number of convolution filters per 
 [1 x min(16,16a), 16,32,64,64]
 
 ## Code 
-RepVGG implementation is my own work. Training script is modifided PyTorch Imagenet script. I used the [TIMM](https://github.com/rwightman/pytorch-image-models) scripts for Mixup and Label Smoothing CE. 
+RepVGG implementation is my own work. Training script is modifided PyTorch Imagenet script. I used the [timm](https://github.com/rwightman/pytorch-image-models) implementations for Mixup and Label Smoothing CE. 
 
 To train one of the 'A' Models on CIFAR-10 you can run:
 
