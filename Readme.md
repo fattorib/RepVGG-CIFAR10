@@ -38,6 +38,8 @@ python main.py --cos-anneal True --warmup 10 --epochs 251 --Mixed-Precision True
 
 All 'A' models are trained for 200 epochs RandAugment (N=1, M=2) and standard CIFAR10/100 data augmentations are also applied. Following the paper, 'B' models are trained for more epochs (250) and with stronger regularization (mixup + label smoothing). 
 
+Models were trained locally on my RTX 2080 and on Tesla T4s through Google Colab. 
+
 ## Differences from Paper
 
 For the smaller 'A' models, I noticed that using a fixed learning rate decay by dividing the learning rate by 10 at 130 and 180 epochs improved the model performance slightly compared to the default Cosine annealing schedule. 
@@ -59,3 +61,5 @@ The larger 'B' model are all trained with Cosine annealing and learning rate war
 | RepVGG-B3 | 4.96                           | 13.16M| 6.23M |
 
 
+## Extra Results:
+Training RepVGG-B3 for 1000 epochs and taking an EWMA of the weights leads to a top-1 error rate of 4.12%.  
