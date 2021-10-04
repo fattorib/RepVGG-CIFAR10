@@ -29,7 +29,6 @@ python main.py --step-lr True --warmup 0 --epochs 201 --Mixed-Precision True --C
 
 ```
 
-```
 To train one of the 'B' Models on CIFAR-10 you can run:
 
 ``` 
