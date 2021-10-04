@@ -1,5 +1,5 @@
 # RepVGG - CIFAR10/100
-PyTorch implementation of RepVGG networks for CIFAR10/100. Existing implementations I have seen use the original RepVGG filter widths, for use on ImageNet which are overkill for CIFAR10/100 and lead to very large models (even during inference), which is counter to what the authors intended. 
+PyTorch implementation of RepVGG networks for CIFAR10/100. Existing implementations I have seen use the original RepVGG filter widths, for use on ImageNet which are overkill for CIFAR10/100 and lead to very large models (even during inference), which is counter to what the authors intended for these models. 
 
 ## Architecture
 We use the same naming convention as the paper:
