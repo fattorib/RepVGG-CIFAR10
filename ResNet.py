@@ -12,6 +12,7 @@ def _weights_init(m):
     if isinstance(m, nn.Linear) or isinstance(m, nn.Conv2d):
         init.kaiming_normal_(m.weight)
 
+
 # ----------Building Blocks----------
 
 
@@ -23,36 +24,77 @@ class ResidualBlock(nn.Module):
         self.out_filters = out_filters
         self.N = N
         self.downsample = downsample
-        self.conv_block = nn.Sequential(nn.Conv2d(
-            self.in_filters, self.in_filters, kernel_size=3, stride=1, padding=1, bias=False),
+        self.conv_block = nn.Sequential(
+            nn.Conv2d(
+                self.in_filters,
+                self.in_filters,
+                kernel_size=3,
+                stride=1,
+                padding=1,
+                bias=False,
+            ),
             nn.BatchNorm2d(self.in_filters),
             nn.ReLU(),
             nn.Conv2d(
-            self.in_filters, self.in_filters, kernel_size=3, stride=1, padding=1, bias=False),
-            nn.BatchNorm2d(self.in_filters)
+                self.in_filters,
+                self.in_filters,
+                kernel_size=3,
+                stride=1,
+                padding=1,
+                bias=False,
+            ),
+            nn.BatchNorm2d(self.in_filters),
         )
 
-        self.residual_block = nn.ModuleList([copy.deepcopy(
-            self.conv_block) for _ in range(self.N-1)])
+        self.residual_block = nn.ModuleList(
+            [copy.deepcopy(self.conv_block) for _ in range(self.N - 1)]
+        )
         self.bn = nn.BatchNorm2d(out_filters, affine=True)
         # Downsample using stride of (2,2)
         if self.downsample:
-            self.final_block = nn.Sequential(nn.Conv2d(
-                self.in_filters, self.in_filters, kernel_size=3, stride=1, padding=1, bias=False),
-                nn.BatchNorm2d(self.in_filters),
-                nn.ReLU(),
-                nn.Conv2d(self.in_filters, self.out_filters,
-                          kernel_size=3, stride=(2, 2), padding=1, bias=False),
-                nn.BatchNorm2d(self.out_filters)
-            )
-        else:
-            self.final_block = nn.Sequential(nn.Conv2d(
-                self.in_filters, self.in_filters, kernel_size=3, stride=1, padding=1, bias=False),
+            self.final_block = nn.Sequential(
+                nn.Conv2d(
+                    self.in_filters,
+                    self.in_filters,
+                    kernel_size=3,
+                    stride=1,
+                    padding=1,
+                    bias=False,
+                ),
                 nn.BatchNorm2d(self.in_filters),
                 nn.ReLU(),
                 nn.Conv2d(
-                self.in_filters, self.in_filters, kernel_size=3, stride=(1, 1), padding=1, bias=False),
-                nn.BatchNorm2d(self.in_filters))
+                    self.in_filters,
+                    self.out_filters,
+                    kernel_size=3,
+                    stride=(2, 2),
+                    padding=1,
+                    bias=False,
+                ),
+                nn.BatchNorm2d(self.out_filters),
+            )
+        else:
+            self.final_block = nn.Sequential(
+                nn.Conv2d(
+                    self.in_filters,
+                    self.in_filters,
+                    kernel_size=3,
+                    stride=1,
+                    padding=1,
+                    bias=False,
+                ),
+                nn.BatchNorm2d(self.in_filters),
+                nn.ReLU(),
+                nn.Conv2d(
+                    self.in_filters,
+                    self.in_filters,
+                    kernel_size=3,
+                    stride=(1, 1),
+                    padding=1,
+                    bias=False,
+                ),
+                nn.BatchNorm2d(self.in_filters),
+            )
         self.apply(_weights_init)
 
     def forward(self, x):
@@ -74,20 +116,38 @@ class ResidualBlock(nn.Module):
 
     def pad_identity(self, x):
         # Perform padding on filters to allow final residual connections
-        return (F.pad(x[:, :, ::2, ::2], (0, 0, 0, 0, self.out_filters//4, self.out_filters//4), "constant", 0))
+        return F.pad(
+            x[:, :, ::2, ::2],
+            (0, 0, 0, 0, self.out_filters // 4, self.out_filters // 4),
+            "constant",
+            0,
+        )
 
 
 class SimpleBlock(nn.Module):
     def __init__(self, in_filters, out_filters):
         super(SimpleBlock, self).__init__()
         self.in_filters = in_filters
-        self.conv_block = nn.Sequential(nn.Conv2d(
-            self.in_filters, self.in_filters, kernel_size=3, stride=1, padding=1, bias=False),
+        self.conv_block = nn.Sequential(
+            nn.Conv2d(
+                self.in_filters,
+                self.in_filters,
+                kernel_size=3,
+                stride=1,
+                padding=1,
+                bias=False,
+            ),
             nn.BatchNorm2d(self.in_filters),
             nn.ReLU(),
             nn.Conv2d(
-            self.in_filters, self.in_filters, kernel_size=3, stride=1, padding=1, bias=False),
-            nn.BatchNorm2d(self.in_filters)
+                self.in_filters,
+                self.in_filters,
+                kernel_size=3,
+                stride=1,
+                padding=1,
+                bias=False,
+            ),
+            nn.BatchNorm2d(self.in_filters),
         )
         # self.apply(_weights_init)
 
@@ -98,7 +158,12 @@ class SimpleBlock(nn.Module):
 
     def pad_identity(self, x):
         # Perform padding on filters to allow final residual connections
-        return (F.pad(x[:, :, ::2, ::2], (0, 0, 0, 0, self.out_filters//4, self.out_filters//4), "constant", 0))
+        return F.pad(
+            x[:, :, ::2, ::2],
+            (0, 0, 0, 0, self.out_filters // 4, self.out_filters // 4),
+            "constant",
+            0,
+        )
 
 
 class DownsampleBlock(nn.Module):
@@ -106,14 +171,29 @@ class DownsampleBlock(nn.Module):
         super(DownsampleBlock, self).__init__()
         self.in_filters = in_filters
         self.out_filters = out_filters
-        self.conv_block = nn.Sequential(nn.Conv2d(
-            self.in_filters, self.in_filters, kernel_size=3, stride=1, padding=1, bias=False),
+        self.conv_block = nn.Sequential(
+            nn.Conv2d(
+                self.in_filters,
+                self.in_filters,
+                kernel_size=3,
+                stride=1,
+                padding=1,
+                bias=False,
+            ),
             nn.BatchNorm2d(self.in_filters),
-            nn.ReLU()
+            nn.ReLU(),
         )
-        self.downsample = nn.Sequential(nn.Conv2d(self.in_filters, self.out_filters,
-                                                  kernel_size=3, stride=(2, 2), padding=1, bias=False),
-                                        nn.BatchNorm2d(self.out_filters))
+        self.downsample = nn.Sequential(
+            nn.Conv2d(
+                self.in_filters,
+                self.out_filters,
+                kernel_size=3,
+                stride=(2, 2),
+                padding=1,
+                bias=False,
+            ),
+            nn.BatchNorm2d(self.out_filters),
+        )
 
         # self.apply(_weights_init)
 
@@ -125,28 +205,40 @@ class DownsampleBlock(nn.Module):
 
     def pad_identity(self, x):
         # Perform padding on filters to allow final residual connections
-        return (F.pad(x[:, :, ::2, ::2], (0, 0, 0, 0, self.out_filters//4, self.out_filters//4), "constant", 0))
+        return F.pad(
+            x[:, :, ::2, ::2],
+            (0, 0, 0, 0, self.out_filters // 4, self.out_filters // 4),
+            "constant",
+            0,
+        )
+
 
 # ----------ResNets----------
 
 
 class ResNet(nn.Module):
-
     def __init__(self, filters_list, N):
         super(ResNet, self).__init__()
         self.filters_list = filters_list
         self.N = N
         self.first_layer = nn.Conv2d(
-            3, filters_list[0], kernel_size=3, stride=1, padding=1, bias=False)
+            3, filters_list[0], kernel_size=3, stride=1, padding=1, bias=False
+        )
         self.bn = nn.BatchNorm2d(filters_list[0])
         self.first_block = ResidualBlock(
-            in_filters=self.filters_list[0], out_filters=self.filters_list[1], N=self.N)
+            in_filters=self.filters_list[0], out_filters=self.filters_list[1], N=self.N
+        )
 
         self.second_block = ResidualBlock(
-            in_filters=self.filters_list[1], out_filters=self.filters_list[2], N=self.N)
+            in_filters=self.filters_list[1], out_filters=self.filters_list[2], N=self.N
+        )
 
         self.third_block = ResidualBlock(
-            in_filters=self.filters_list[2], out_filters=self.filters_list[2], N=self.N, downsample=False)
+            in_filters=self.filters_list[2],
+            out_filters=self.filters_list[2],
+            N=self.N,
+            downsample=False,
+        )
         self.fc = nn.Linear(64, 10)
 
         self.apply(_weights_init)
@@ -165,34 +257,36 @@ class ResNet(nn.Module):
 
 
 class ResNetV2(nn.Module):
-
     def __init__(self, filters_list, N):
         super(ResNetV2, self).__init__()
         self.filters_list = filters_list
         self.N = N
         self.first_layer = nn.Conv2d(
-            3, filters_list[0], kernel_size=3, stride=1, padding=1, bias=False)
+            3, filters_list[0], kernel_size=3, stride=1, padding=1, bias=False
+        )
         self.bn = nn.BatchNorm2d(filters_list[0])
-        self.first_block_type = SimpleBlock(
-            self.filters_list[0], self.filters_list[0])
-        self.second_block_type = SimpleBlock(
-            self.filters_list[1], self.filters_list[2])
-        self.third_block_type = SimpleBlock(
-            self.filters_list[2], self.filters_list[2])
+        self.first_block_type = SimpleBlock(self.filters_list[0], self.filters_list[0])
+        self.second_block_type = SimpleBlock(self.filters_list[1], self.filters_list[2])
+        self.third_block_type = SimpleBlock(self.filters_list[2], self.filters_list[2])
 
         # First block
-        self.first_block = nn.ModuleList([copy.deepcopy(
-            self.first_block_type) for _ in range(self.N-1)])
+        self.first_block = nn.ModuleList(
+            [copy.deepcopy(self.first_block_type) for _ in range(self.N - 1)]
+        )
         self.first_downsample = DownsampleBlock(
-            self.filters_list[0], self.filters_list[1])
+            self.filters_list[0], self.filters_list[1]
+        )
 
-        self.second_block = nn.ModuleList([copy.deepcopy(
-            self.second_block_type) for _ in range(self.N-1)])
+        self.second_block = nn.ModuleList(
+            [copy.deepcopy(self.second_block_type) for _ in range(self.N - 1)]
+        )
         self.second_downsample = DownsampleBlock(
-            self.filters_list[1], self.filters_list[2])
+            self.filters_list[1], self.filters_list[2]
+        )
 
-        self.third_block = nn.ModuleList([copy.deepcopy(
-            self.third_block_type) for _ in range(self.N)])
+        self.third_block = nn.ModuleList(
+            [copy.deepcopy(self.third_block_type) for _ in range(self.N)]
+        )
 
         self.apply(_weights_init)
 
@@ -218,6 +312,7 @@ class ResNetV2(nn.Module):
         x = self.fc(x)
         return x
 
-if __name__ == '__main__':
 
-    model =  ResNet(filters_list=[16, 32, 64], N=3)
+if __name__ == "__main__":
+
+    model = ResNet(filters_list=[16, 32, 64], N=3)

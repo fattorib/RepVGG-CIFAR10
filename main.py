@@ -147,7 +147,6 @@ def main():
 
         if args.model == "RepVGGA0":
             model = create_RepVGG_A0(num_classes=args.num_classes)
-            
 
         if args.model == "RepVGGA1":
             model = create_RepVGG_A1(num_classes=args.num_classes)
@@ -176,20 +175,18 @@ def main():
         model = model.cuda()
 
         if args.ewma:
-                
+
             model.eval()
             model_base = deploy_model(model)
             model.train()
 
-            global ewma_model 
-            ewma_model = EWMAModel(base = model_base)
+            global ewma_model
+            ewma_model = EWMAModel(base=model_base)
 
         if args.label_smoothing:
             criterion = LabelSmoothingCrossEntropy().cuda()
         else:
             criterion = nn.CrossEntropyLoss().cuda()
-
-
 
     if args.cos_anneal:
         assert args.step_lr == False
@@ -487,7 +484,7 @@ def validate(loader, model, criterion, scaler=None):
             if args.model == "RepVGG" and not args.ewma:
                 output = deployed_model(images)
                 loss = criterion(output, target)
-            
+
             elif args.model == "RepVGG" and args.ewma:
                 output = ewma_model(images)
                 loss = criterion(output, target)
@@ -556,11 +553,7 @@ def create_optimizer(model, weight_decay, lr):
     params = []
     for key, value in model.named_parameters():
 
-        if (
-            "fc.bias" in key
-            or "bias" in key
-            or "bn" in key
-        ):
+        if "fc.bias" in key or "bias" in key or "bn" in key:
             print(f"No weight decay for paramater: {key}")
             apply_weight_decay = 0
             params += [
