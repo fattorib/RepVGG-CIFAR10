@@ -48,8 +48,6 @@ def reparam_func(layer):
 
             channel_shape = layer.conv_3.weight.shape
 
-            # This is not how you do this - you make an identity matrix and then reshape it i guess?
-
             idx_weight = (
                 torch.eye(channel_shape[0], channel_shape[0])
                 .unsqueeze(2)
